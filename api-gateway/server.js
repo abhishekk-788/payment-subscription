@@ -4,7 +4,7 @@ require("dotenv").config();
 const userRoutes = require("./routes/userRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
-const subscriptionRoutes = require("./routes/subscriptionRoutes");
+const subscriptionRoutes = require("./routes/subcriptionRoutes");
 
 const app = express();
 
