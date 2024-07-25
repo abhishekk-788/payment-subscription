@@ -3,25 +3,34 @@ const Notification = require("../models/notificationModel");
 const sendEmail = require("../services/emailService");
 
 // Send a notification
-const sendNotification = async (req, res) => {
+const sendNotification = async (channel) => async (req, res) => {
   const { userId, email, subject, message } = req.body;
 
-  try {
-    await sendEmail(email, subject, message);
+  channel.assertQueue("payment_queue", { durable: true });
 
-    const notification = new Notification({
-      userId,
-      email,
-      subject,
-      message,
-    });
+  // Consume messages from the queue
+  channel.consume("payment_queue", async (msg) => {
+    if (msg !== null) {
+      
+      const paymentData = JSON.parse(msg.content.toString());
+      console.log("Received payment data:", paymentData);
 
-    await notification.save();
-    res.status(201).json(notification);
-  } catch (err) {
-    console.error(err.message);
-    res.status(500).send("Server error");
-  }
+      await sendEmail(email, subject, message);
+
+      const notification = new Notification({
+        userId,
+        email,
+        subject,
+        message,
+      });
+
+      await notification.save();
+
+      channel.ack(msg);
+      
+      res.status(201).json(notification);
+    }
+  });
 };
 
 module.exports = {

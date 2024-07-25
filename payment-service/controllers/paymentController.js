@@ -1,6 +1,14 @@
 const moment = require("moment-timezone");
 const Payment = require("../models/paymentModel");
+const connectRabbitMQ = require("./utils/rabbitmq");
 require("dotenv").config();
+
+let channel;
+
+const init = async () => {
+  channel = await connectRabbitMQ();
+  channel.assertQueue("payment_queue", { durable: true });
+};
 
 // Create a new payment
 const createPayment = async (req, res) => {
@@ -8,7 +16,15 @@ const createPayment = async (req, res) => {
   try {
     const payment = new Payment({ userId, amount, dueDate });
     await payment.save();
-    res.status(201).json(payment);
+
+    // Send message to the queue
+    channel.sendToQueue(
+      "payment_queue",
+      Buffer.from(JSON.stringify(paymentData)),
+      { persistent: true }
+    );
+
+    res.status(200).send("Payment processed and message sent to queue");
   } catch (error) {
     console.error(error.message);
     res.status(500).send("Server error");
@@ -30,7 +46,14 @@ const extendPayment = async (req, res) => {
       .toDate();
 
     await payment.save();
-    res.json(payment);
+    
+    // Send message to the queue
+    channel.sendToQueue(
+      "payment_queue",
+      Buffer.from(JSON.stringify(paymentData)),
+      { persistent: true }
+    );
+    res.status(200).send("EMI extension processed and message sent to queue");
   } catch (error) {
     console.error(error.message);
     res.status(500).send("Server error");
@@ -52,4 +75,4 @@ const getPaymentById = async (req, res) => {
   }
 };
 
-module.exports = { createPayment, extendPayment, getPaymentById };
+module.exports = { init, createPayment, extendPayment, getPaymentById };

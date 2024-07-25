@@ -1,6 +1,6 @@
-// routes/paymentRoutes.js
 const express = require("express");
 const {
+  init, 
   createPayment,
   extendPayment,
   getPaymentById,
@@ -17,4 +17,4 @@ router.put("/extend/:paymentId", extendPayment);
 // Get payment by ID
 router.get("/:paymentId", getPaymentById);
 
-module.exports = router;
+module.exports = { init, router };
