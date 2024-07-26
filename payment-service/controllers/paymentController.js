@@ -88,4 +88,4 @@ const getPaymentById = async (req, res) => {
   }
 };
 
-module.exports = { init, createPayment, extendPayment, getPaymentById };
+module.exports = { createPayment, extendPayment, getPaymentById };

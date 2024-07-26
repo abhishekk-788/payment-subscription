@@ -1,5 +1,6 @@
 // utils/rabbitmq.js
 const amqp = require("amqplib");
+const logger = require("./logger"); // Path to your logger utility
 require("dotenv").config();
 
 const RABBITMQ_URL = process.env.RABBITMQ_URL || "amqp://localhost:5672";
@@ -21,6 +22,7 @@ const sendToQueue = async (queue, message) => {
   channel.sendToQueue(queue, Buffer.from(JSON.stringify(message)), {
     persistent: true,
   });
+  logger.info("Message sent to queue", { queue, message });
 };
 
 const consumeMessages = async (queue, callback) => {
@@ -30,6 +32,9 @@ const consumeMessages = async (queue, callback) => {
     if (msg !== null) {
       await callback(JSON.parse(msg.content.toString()));
       channel.ack(msg);
+      logger.info("Message acknowledged", {
+        messageId: msg.properties.messageId,
+      });
     }
   });
 };

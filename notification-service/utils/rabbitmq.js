@@ -1,5 +1,6 @@
 // utils/rabbitmq.js
 const amqp = require("amqplib");
+const logger = require("./logger"); // Path to your logger utility
 require("dotenv").config();
 
 const RABBITMQ_URL = process.env.RABBITMQ_URL || "amqp://localhost:15672";

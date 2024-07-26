@@ -4,7 +4,6 @@ const logger = require("../utils/logger"); // Path to your logger utility
 
 // controllers/notificationController.js
 const sendMailNotification = async (paymentData) => {
-  const paymentData = JSON.parse(msg.content.toString());
   console.log("Received payment data: ", paymentData);
 
   let subject = "";
@@ -55,59 +54,59 @@ const sendMailNotification = async (paymentData) => {
 };
 
 // Send a notification
-const sendNotification = async (req, res) => {
-  const { userId, email, subject, message } = req.body;
+// const sendNotification = async (req, res) => {
+//   const { userId, email, subject, message } = req.body;
 
-  logger.info("Send notification request received", {
-    userId,
-    email,
-    subject,
-    message,
-  });
+//   logger.info("Send notification request received", {
+//     userId,
+//     email,
+//     subject,
+//     message,
+//   });
 
-  try {
-    channel.assertQueue("payment_queue", { durable: true });
-    logger.info("Queue asserted", { queue: "payment_queue" });
+//   try {
+//     channel.assertQueue("payment_queue", { durable: true });
+//     logger.info("Queue asserted", { queue: "payment_queue" });
 
-    // Consume messages from the queue
-    channel.consume("payment_queue", async (msg) => {
-      if (msg !== null) {
-        const paymentData = JSON.parse(msg.content.toString());
-        logger.info("Received payment data", { paymentData });
+//     // Consume messages from the queue
+//     channel.consume("payment_queue", async (msg) => {
+//       if (msg !== null) {
+//         const paymentData = JSON.parse(msg.content.toString());
+//         logger.info("Received payment data", { paymentData });
 
-        try {
-          await sendEmail(email, subject, message);
-          logger.info("Email sent successfully", { email, subject });
+//         try {
+//           await sendEmail(email, subject, message);
+//           logger.info("Email sent successfully", { email, subject });
 
-          const notification = new Notification({
-            userId,
-            email,
-            subject,
-            message,
-          });
+//           const notification = new Notification({
+//             userId,
+//             email,
+//             subject,
+//             message,
+//           });
 
-          await notification.save();
-          logger.info("Notification saved successfully", {
-            notificationId: notification._id,
-          });
+//           await notification.save();
+//           logger.info("Notification saved successfully", {
+//             notificationId: notification._id,
+//           });
 
-          channel.ack(msg);
-          logger.info("Message acknowledged", {
-            messageId: msg.properties.messageId,
-          });
+//           channel.ack(msg);
+//           logger.info("Message acknowledged", {
+//             messageId: msg.properties.messageId,
+//           });
 
-          res.status(201).json(notification);
-        } catch (error) {
-          logger.error("Error processing message", { error: error.message });
-          channel.nack(msg); // Optionally requeue the message
-          res.status(500).send("Server error");
-        }
-      }
-    });
-  } catch (error) {
-    logger.error("Error setting up notification", { error: error.message });
-    res.status(500).send("Server error");
-  }
-};
+//           res.status(201).json(notification);
+//         } catch (error) {
+//           logger.error("Error processing message", { error: error.message });
+//           channel.nack(msg); // Optionally requeue the message
+//           res.status(500).send("Server error");
+//         }
+//       }
+//     });
+//   } catch (error) {
+//     logger.error("Error setting up notification", { error: error.message });
+//     res.status(500).send("Server error");
+//   }
+// };
 
 module.exports = sendMailNotification;
