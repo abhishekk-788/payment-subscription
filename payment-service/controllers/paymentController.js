@@ -1,22 +1,25 @@
 const moment = require("moment-timezone");
 const Payment = require("../models/paymentModel");
 const PaymentUser = require("../models/paymentUserModel");
-const sendToQueue = require("../utils/rabbitmq");
+const sendToQueue = require("../utils/rabbitmq").sendToQueue;
+const logger = require("../utils/logger");
 require("dotenv").config();
 
 // Create a new payment
 const createPayment = async (req, res) => {
   const { userId, amount, dueDate } = req.body;
   try {
-    const payment = new Payment({ userId, amount, dueDate });
-    await payment.save();
 
     const paymentUser = await PaymentUser.findOne({ userId: userId });
     if (!paymentUser) return res.status(404).json({ msg: "User not found" });
 
+    const payment = new Payment({ userId, amount, dueDate });
+    await payment.save();
+
     const dataToQueue = {
       type: "payment_created",
       userId: paymentUser._id,
+      name: paymentUser.name,
       email: paymentUser.email,
       paymentId: payment._id,
       amount: payment.amount,
@@ -24,11 +27,14 @@ const createPayment = async (req, res) => {
     }
     
     // Send message to the queue
-    await sendToQueue("payment_created_queue", dataToQueue);
+    sendToQueue("payment_queue", dataToQueue);
 
-    res.status(200).send("Payment has been processed");
+    res.status(200).json({
+      "message": "Payment has been processed",
+      "paymentId": payment._id
+    });
   } catch (error) {
-    console.error(error.message);
+    logger.error(error.message);
     res.status(500).send("Server error");
   }
 };

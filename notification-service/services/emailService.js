@@ -1,10 +1,11 @@
 // services/emailService.js
 const nodemailer = require("nodemailer");
+const logger = require("../utils/logger"); 
 require("dotenv").config();
 
 const sendEmail = async (to, subject, text) => {
+  logger.info("Sending email", { to, subject, text });
   try {
-    
     const transporter = nodemailer.createTransport({
       host: "smtp.ethereal.email",
       port: 587,
@@ -14,14 +15,6 @@ const sendEmail = async (to, subject, text) => {
         pass: process.env.EMAIL_PASS,
       },
     });
-
-    // let transporter = nodemailer.createTransport({
-    //   service: "hotmail",
-    //   auth: {
-    //     user: process.env.EMAIL_USER,
-    //     pass: process.env.EMAIL_PASS,
-    //   },
-    // });
 
     let info = await transporter.sendMail({
       from: `"Subscription Platform" <${process.env.EMAIL_USER}>`,

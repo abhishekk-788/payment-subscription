@@ -3,6 +3,8 @@ const express = require("express");
 const connectDB = require("./config/db");
 const paymentRoutes = require("./routes/paymentRoutes");
 const consumeMessages = require("./utils/rabbitmq").consumeMessages;
+const PaymentUser = require("./models/paymentUserModel")
+const logger = require("./utils/logger");
 require("dotenv").config();
 
 const app = express();
@@ -33,7 +35,7 @@ const startServer = async () => {
       });
       await paymentUser.save();
 
-      logger.info("PaymentUser saved successfully", { userId: user._id });
+      logger.info("PaymentUser saved successfully", paymentUser);
     } catch (error) {
       console.error("Failed to store user data in payment service:", error);
     }

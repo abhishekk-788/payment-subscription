@@ -31,10 +31,10 @@ const consumeMessages = async (queue, callback) => {
   channel.consume(queue, async (msg) => {
     if (msg !== null) {
       await callback(JSON.parse(msg.content.toString()));
-      channel.ack(msg);
       logger.info("Message acknowledged", {
         messageId: msg.properties.messageId,
       });
+      channel.ack(msg);
     }
   });
 };
