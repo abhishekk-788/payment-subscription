@@ -17,4 +17,4 @@ router.put("/extend/:paymentId", extendPayment);
 // Get payment by ID
 router.get("/:paymentId", getPaymentById);
 
-module.exports = { init, router };
+module.exports = router;

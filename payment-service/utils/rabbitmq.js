@@ -1,7 +1,8 @@
 // utils/rabbitmq.js
 const amqp = require("amqplib");
+require("dotenv").config();
 
-const RABBITMQ_URL = process.env.RABBITMQ_URL || "amqp://localhost:15672";
+const RABBITMQ_URL = process.env.RABBITMQ_URL || "amqp://localhost:5672";
 
 const connectRabbitMQ = async () => {
   try {
@@ -14,5 +15,26 @@ const connectRabbitMQ = async () => {
     process.exit(1);
   }
 };
+const sendToQueue = async (queue, message) => {
+  const channel = await connectRabbitMQ();
+  channel.assertQueue(queue, { durable: true });
+  channel.sendToQueue(queue, Buffer.from(JSON.stringify(message)), {
+    persistent: true,
+  });
+};
 
-module.exports = connectRabbitMQ;
+const consumeMessages = async (queue, callback) => {
+  const channel = await connectRabbitMQ();
+  channel.assertQueue(queue, { durable: true });
+  channel.consume(queue, async (msg) => {
+    if (msg !== null) {
+      await callback(JSON.parse(msg.content.toString()));
+      channel.ack(msg);
+    }
+  });
+};
+
+module.exports = {
+  sendToQueue,
+  consumeMessages,
+};

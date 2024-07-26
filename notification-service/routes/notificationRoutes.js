@@ -4,10 +4,12 @@ const { sendNotification } = require("../controllers/notificationController");
 
 const router = express.Router();
 
-const notificationRoutes = (channel) => {
+const notificationRoutes = async () => {
   // Send a notification
-    router.post("/send", sendNotification(channel));
-    return router;
+  router.post("/send", () => {
+    sendNotification();
+  });
+  return router;
 };
 
 module.exports = notificationRoutes;

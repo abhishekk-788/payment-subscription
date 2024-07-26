@@ -3,6 +3,7 @@ const User = require("../models/userModel");
 const logger = require("../utils/logger");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const sendToQueue = require("../utils/rabbitmq");
 require("dotenv").config();
 
 // Register a new user
@@ -25,6 +26,14 @@ const registerUser = async (req, res) => {
 
     await user.save();
     logger.info("User saved successfully", { userId: user._id });
+
+    const dataToQueue = {
+      userId: user._id,
+      name: user.name,
+      email: user.email,
+    }
+
+    await sendToQueue("user_registration_queue", dataToQueue);
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
       expiresIn: "1h",

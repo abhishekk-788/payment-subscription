@@ -1,4 +1,4 @@
-const Subscription = require("../models/subscriptionModel");
+const Subscription = require("../models/subcriptionModel");
 const axios = require("axios");
 const logger = require("../utils/logger"); // Path to your logger utility
 require("dotenv").config();
