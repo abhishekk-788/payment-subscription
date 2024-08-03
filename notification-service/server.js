@@ -22,7 +22,7 @@ const PORT = process.env.PORT || 5003;
 const startServer = async () => {
 
   // Consume Messages
-  consumeMessages("payment_queue", async (paymentData) => {
+  consumeMessages("notification_queue", async (paymentData) => {
     await sendMailNotification(paymentData);
   });
 

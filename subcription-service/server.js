@@ -2,6 +2,9 @@
 const express = require("express");
 const connectDB = require("./config/db");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
+const consumeMessages = require("./utils/rabbitmq").consumeMessages;
+const SubscriptionUserModel = require("./models/subscriptionUserModel");
+const logger = require("./utils/logger")
 require("dotenv").config();
 
 const app = express();
@@ -17,4 +20,34 @@ app.use("/api/subscriptions", subscriptionRoutes);
 
 const PORT = process.env.PORT || 5004;
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+const startServer = async () => {
+
+  // Start consuming user registration messages
+  consumeMessages("subscription_user_registration_queue", async (user) => {
+    logger.info("User registration received in subscription service", {
+      userId: user.userId,
+      email: user.email,
+    });
+    try {
+      const subscriptionUser = new SubscriptionUserModel({
+        userId: user.userId,
+        name: user.name,
+        email: user.email,
+      });
+      await subscriptionUser.save();
+
+      logger.info("subscriptionUser saved successfully", subscriptionUser);
+    } catch (error) {
+      console.error(
+        "Failed to store user data in subscription service:",
+        error
+      );
+    }
+  });
+
+  app.listen(PORT, () => {
+    console.log(`Subscription Service running on port ${PORT}`);
+  });
+};
+
+startServer();

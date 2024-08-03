@@ -1,30 +1,36 @@
-const Subscription = require("../models/subcriptionModel");
+const Subscription = require("../models/subscriptionModel");
 const axios = require("axios");
 const logger = require("../utils/logger"); // Path to your logger utility
+const SubscriptionUser = require("../models/subscriptionUserModel");
+const schedulePayments = require("../services/subcriptionService");
 require("dotenv").config();
 
 // Create a new subscription
 const createSubscription = async (req, res) => {
-  const { userId, paymentId, subscriptionDate, subscriptionType } = req.body;
-  logger.info("Create subscription request received", {
-    userId,
-    paymentId,
-    subscriptionDate,
-    subscriptionType,
-  });
-
+  const { userId, subscriptionType, amount } = req.body;
   try {
-    const subscription = new Subscription({
+    const subscriptionUser = await SubscriptionUser.findOne({ userId: userId });
+    if (!subscriptionUser)
+      return res.status(404).json({ msg: "User not found" });
+
+    logger.info("Create subscription request received", {
       userId,
-      paymentId,
-      subscriptionDate,
       subscriptionType,
     });
 
-    await subscription.save();
-    logger.info("Subscription created successfully", {
-      subscriptionId: subscription._id,
+    
+    const subscription = new Subscription({
+      userId: userId,
+      subscriptionType: subscriptionType,
+      amount: amount,
     });
+
+    await subscription.save();
+    
+    logger.info("Subscription created successfully", subscription);
+
+    await schedulePayments(subscription);
+
     res.status(201).json(subscription);
   } catch (err) {
     logger.error("Error creating subscription", { error: err.message });

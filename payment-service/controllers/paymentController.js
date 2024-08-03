@@ -27,7 +27,7 @@ const createPayment = async (req, res) => {
     }
     
     // Send message to the queue
-    sendToQueue("payment_queue", dataToQueue);
+    sendToQueue("notification_queue", dataToQueue);
 
     res.status(200).json({
       "message": "Payment has been processed",
@@ -70,7 +70,7 @@ const extendPayment = async (req, res) => {
       extensionCharge: extensionCharge,
     };
 
-    await sendToQueue("payment_queue", dataToQueue);
+    await sendToQueue("notification_queue", dataToQueue);
 
     res.status(200).send("EMI extension processed");
   } catch (error) {

@@ -30,10 +30,11 @@ const registerUser = async (req, res) => {
     const dataToQueue = {
       userId: user._id,
       name: user.name,
-      email: user.email,
+      email: user.email
     }
 
-    await sendToQueue("user_registration_queue", dataToQueue);
+    await sendToQueue("payment_user_registration_queue", dataToQueue);
+    await sendToQueue("subscription_user_registration_queue", dataToQueue);
 
     const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
       expiresIn: "1h",
