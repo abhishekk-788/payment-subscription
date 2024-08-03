@@ -6,6 +6,7 @@ const consumeMessages = require("./utils/rabbitmq").consumeMessages;
 const PaymentUser = require("./models/paymentUserModel")
 const logger = require("./utils/logger");
 const createPaymentFromSubscriptionQueue = require("./services/paymentService");
+const { schedulePaymentReminders } = require("./services/schedulePaymentReminders");
 require("dotenv").config();
 
 const app = express();
@@ -54,6 +55,8 @@ const startServer = async () => {
     await createPaymentFromSubscriptionQueue(payment);
 
   })
+
+  await schedulePaymentReminders();
 
   app.listen(PORT, () => {
     console.log(`Payment Service running on port ${PORT}`);

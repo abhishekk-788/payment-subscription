@@ -24,7 +24,7 @@ const createPaymentFromSubscriptionQueue = async (payment) => {
     };
 
     // Send message to the queue
-    sendToQueue("notification_queue", dataToQueue);
+    // sendToQueue("notification_queue", dataToQueue);
 
     logger.info({
       message: "Payment has been processed",

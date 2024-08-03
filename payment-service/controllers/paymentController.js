@@ -7,31 +7,37 @@ require("dotenv").config();
 
 // Create a new payment
 const createPayment = async (req, res) => {
-  const { userId, amount, dueDate } = req.body;
+  const { userId, subscriptionId, amount, dueDate, priority } = req.body;
   try {
-
     const paymentUser = await PaymentUser.findOne({ userId: userId });
     if (!paymentUser) return res.status(404).json({ msg: "User not found" });
 
-    const payment = new Payment({ userId, amount, dueDate });
+    const payment = new Payment({
+      userId,
+      subscriptionId,
+      amount,
+      dueDate,
+      priority,
+    });
     await payment.save();
 
     const dataToQueue = {
       type: "payment_created",
       userId: paymentUser._id,
+      subscriptionId: payment.subscriptionId,
       name: paymentUser.name,
       email: paymentUser.email,
       paymentId: payment._id,
       amount: payment.amount,
       dueDate: payment.dueDate,
-    }
-    
+    };
+
     // Send message to the queue
     sendToQueue("notification_queue", dataToQueue);
 
     res.status(200).json({
-      "message": "Payment has been processed",
-      "paymentId": payment._id
+      message: "Payment has been processed",
+      paymentId: payment._id,
     });
   } catch (error) {
     logger.error(error.message);

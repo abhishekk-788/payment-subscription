@@ -22,8 +22,8 @@ const PORT = process.env.PORT || 5003;
 const startServer = async () => {
 
   // Consume Messages
-  consumeMessages("notification_queue", async (paymentData) => {
-    await sendMailNotification(paymentData);
+  consumeMessages("notification_queue", async (data) => {
+    await sendMailNotification(data);
   });
 
   app.listen(PORT, () => {

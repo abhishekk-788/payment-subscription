@@ -1,7 +1,14 @@
 const moment = require("moment-timezone");
 const { sendToQueue } = require("../utils/rabbitmq");
+const SubscriptionUser = require("../models/subscriptionUserModel");
+const logger = require("../utils/logger");
 
 const schedulePayments = async (subscription) => {
+  const subscriptionUser = await SubscriptionUser.findOne({ userId: subscription.userId });
+  if (!subscriptionUser) {
+    logger.error("User not found", { userId: subscription.userId });
+    throw { msg: "User not found" };
+  }
   const subscriptionId = subscription._id;
   const subscriptionType = subscription.subscriptionType;
   let payments;
@@ -38,6 +45,17 @@ const schedulePayments = async (subscription) => {
     await sendToQueue("payment_queue", payment);
     console.log("Sent payment to queue:", payment);
   });
+
+  const subscriptionDataToNotificationQueue = {
+      type: "subscription_created",
+      userId: subscription.userId,
+      subscriptionId: subscription._id,
+      name: subscriptionUser.name,
+      email: subscriptionUser.email,
+      amount: subscription.amount
+  }
+  await sendToQueue("notification_queue", subscriptionDataToNotificationQueue);
+  
 };
 
 scheduleOneTimePayment = (subscription) => {
