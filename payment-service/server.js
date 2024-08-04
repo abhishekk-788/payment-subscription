@@ -8,6 +8,8 @@ const logger = require("./utils/logger");
 const createPaymentFromSubscriptionQueue = require("./services/paymentService");
 const { schedulePaymentReminders } = require("./services/schedulePaymentReminders");
 require("dotenv").config();
+const mongoose = require("mongoose");
+const Payment = require("./models/paymentModel");
 
 const app = express();
 
@@ -23,6 +25,7 @@ app.use("/api/payments", paymentRoutes);
 const PORT = process.env.PORT || 5002;
 
 const startServer = async () => {
+  
   // Start consuming user registration messages
   consumeMessages("payment_user_registration_queue", async (user) => {
     logger.info("User registration received in payment service", {
@@ -43,18 +46,46 @@ const startServer = async () => {
     }
   });
 
-  consumeMessages("payment_queue", async (payment) => { 
+  consumeMessages("payment_queue", async (data) => {
+    const { payment, subscriptionPaymentId } = data;
     logger.info("Payment received in payment service", {
       subscriptionId: payment.subscriptionId,
       userId: payment.userId,
       amount: payment.amount,
       dueDate: payment.dueDate,
-      priority: payment.priority
+      priority: payment.priority,
+      subscriptionPaymentId: subscriptionPaymentId
     });
 
-    await createPaymentFromSubscriptionQueue(payment);
+    await createPaymentFromSubscriptionQueue(payment, subscriptionPaymentId);
 
-  })
+  });
+
+  consumeMessages("update_payment_queue", async (payment) => {
+    logger.info("Payment received in payment service", {
+      subscriptionPaymentId: payment._id,
+      subscriptionId: payment.subscriptionId,
+      userId: payment.userId,
+      amount: payment.amount,
+      dueDate: payment.dueDate,
+      priority: payment.priority,
+      extendedDueDate: payment.extendedDueDate,
+      extensionCharges: payment.extensionCharges,
+      isDateExtended: payment.isDateExtended
+    });
+
+    const result = await Payment.updateOne(
+      { subscriptionPaymentId: payment._id },
+      {
+        $set: {
+          extendedDueDate: payment.extendedDueDate,
+          extensionCharges: payment.extensionCharges,
+          isDateExtended: payment.isDateExtended,
+        },
+      }
+    );
+    logger.info("Payment updated successfully", result, payment);
+  });
 
   await schedulePaymentReminders();
 

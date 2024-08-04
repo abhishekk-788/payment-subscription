@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const moment = require("moment-timezone");
-const paymentSchema = new mongoose.Schema({
+const subscriptionPaymentSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
@@ -9,11 +9,6 @@ const paymentSchema = new mongoose.Schema({
   subscriptionId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Subscription",
-    required: true,
-  },
-  subscriptionPaymentId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "SubscriptionPayment",
     required: true,
   },
   amount: {
@@ -66,7 +61,7 @@ const calculateDueDate = (dueDate) => {
   return dueDateMoment.toDate();
 };
 
-paymentSchema.pre("save", function (next) {
+subscriptionPaymentSchema.pre("save", function (next) {
   if (this.isNew || this.isModified("createdAt")) {
     this.createdAt = convertDateToIST(this.createdAt);
   }
@@ -77,4 +72,4 @@ paymentSchema.pre("save", function (next) {
   next();
 });
 
-module.exports = mongoose.model("Payment", paymentSchema);
+module.exports = mongoose.model("SubscriptionPayment", subscriptionPaymentSchema);

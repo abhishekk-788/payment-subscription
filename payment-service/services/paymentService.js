@@ -3,13 +3,23 @@ const PaymentUser = require("../models/paymentUserModel");
 const sendToQueue = require("../utils/rabbitmq").sendToQueue;
 const logger = require("../utils/logger");
 
-const createPaymentFromSubscriptionQueue = async (payment) => {
+const createPaymentFromSubscriptionQueue = async (
+  payment,
+  subscriptionPaymentId
+) => {
   const { userId, subscriptionId, amount, dueDate, priority } = payment;
   try {
     const paymentUser = await PaymentUser.findOne({ userId: userId });
     if (!paymentUser) return res.status(404).json({ msg: "User not found" });
 
-    const payment = new Payment({ userId, subscriptionId, amount, dueDate, priority });
+    const payment = new Payment({
+      userId,
+      subscriptionId,
+      subscriptionPaymentId,
+      amount,
+      dueDate,
+      priority,
+    });
     await payment.save();
 
     const dataToQueue = {

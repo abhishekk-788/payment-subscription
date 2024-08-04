@@ -2,6 +2,7 @@ const moment = require("moment-timezone");
 const { sendToQueue } = require("../utils/rabbitmq");
 const SubscriptionUser = require("../models/subscriptionUserModel");
 const logger = require("../utils/logger");
+const SubscriptionPaymentModel = require("../models/subscriptionPaymentsModel");
 
 const schedulePayments = async (subscription) => {
   const subscriptionUser = await SubscriptionUser.findOne({ userId: subscription.userId });
@@ -42,8 +43,22 @@ const schedulePayments = async (subscription) => {
   }
 
   payments.forEach(async (payment) => {
-    await sendToQueue("payment_queue", payment);
-    console.log("Sent payment to queue:", payment);
+    
+    const subscriptionPayment = new SubscriptionPaymentModel({
+      userId: payment.userId,
+      subscriptionId: payment.subscriptionId,
+      amount: payment.amount,
+      dueDate: payment.dueDate,
+      priority: payment.priority
+    });
+    
+    await subscriptionPayment.save();
+    
+    await sendToQueue("payment_queue", { payment: payment, subscriptionPaymentId: subscriptionPayment._id });
+    logger.info("Sent payment to queue:", {
+      payment: payment,
+      subscriptionPaymentId: subscriptionPayment._id,
+    });
   });
 
   const subscriptionDataToNotificationQueue = {
