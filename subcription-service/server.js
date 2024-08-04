@@ -33,6 +33,10 @@ const startServer = async () => {
         userId: user.userId,
         name: user.name,
         email: user.email,
+        createdAt: {
+          utc: user.createdAt.utc,
+          ist: user.createdAt.ist,
+        },
       });
       await subscriptionUser.save();
 

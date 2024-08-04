@@ -13,12 +13,19 @@ const createPayment = async (req, res) => {
     if (!paymentUser) return res.status(404).json({ msg: "User not found" });
 
     const payment = new Payment({
-      userId,
-      subscriptionId,
-      amount,
-      dueDate,
-      priority,
+      userId: userId,
+      subcriptionId: subscriptionId,
+      amount: amount,
+      dueDate: {
+        utc: dueDate,
+        ist: moment(dueDate)
+         .add(5, "hours")
+         .add(30, "minutes")
+         .toDate(),
+      },
+      priority: priority,
     });
+    
     await payment.save();
 
     const dataToQueue = {
@@ -29,7 +36,7 @@ const createPayment = async (req, res) => {
       email: paymentUser.email,
       paymentId: payment._id,
       amount: payment.amount,
-      dueDate: payment.dueDate,
+      dueDate: payment.dueDate.utc,
     };
 
     // Send message to the queue
@@ -41,46 +48,6 @@ const createPayment = async (req, res) => {
     });
   } catch (error) {
     logger.error(error.message);
-    res.status(500).send("Server error");
-  }
-};
-
-// Extend payment due date
-const extendPayment = async (req, res) => {
-  const { paymentId } = req.params;
-  const { extensionDays, extensionCharge } = req.body;
-
-  try {
-    let payment = await Payment.findById(paymentId);
-    if (!payment) return res.status(404).json({ msg: "Payment not found" });
-
-    const extendedDueDate = moment(payment.dueDate);
-    payment.extendedDueDate = extendedDueDate
-      .add(extensionDays, "days")
-      .toDate();
-
-    await payment.save();
-
-    const paymentUser = await PaymentUser.findOne({ userId: userId });
-    if (!paymentUser) return res.status(404).json({ msg: "User not found" });
-
-    const dataToQueue = {
-      type: "payment_extended",
-      userId: paymentUser._id,
-      email: paymentUser.email,
-      paymentId: payment._id,
-      amount: payment.amount,
-      dueDate: payment.dueDate,
-      extendedDueDate: payment.extendedDueDate,
-      extensionDays: extensionDays,
-      extensionCharge: extensionCharge,
-    };
-
-    await sendToQueue("notification_queue", dataToQueue);
-
-    res.status(200).send("EMI extension processed");
-  } catch (error) {
-    console.error(error.message);
     res.status(500).send("Server error");
   }
 };
@@ -100,4 +67,4 @@ const getPaymentById = async (req, res) => {
   }
 };
 
-module.exports = { createPayment, extendPayment, getPaymentById };
+module.exports = { createPayment, getPaymentById };

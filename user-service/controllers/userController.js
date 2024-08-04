@@ -30,7 +30,11 @@ const registerUser = async (req, res) => {
     const dataToQueue = {
       userId: user._id,
       name: user.name,
-      email: user.email
+      email: user.email,
+      createdAt: {
+        utc: user.createdAt.utc,
+        ist: user.createdAt.ist,
+      }
     }
 
     await sendToQueue("payment_user_registration_queue", dataToQueue);

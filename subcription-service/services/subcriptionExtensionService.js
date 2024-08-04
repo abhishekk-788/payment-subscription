@@ -10,11 +10,11 @@ const findNearestUpcomingPayment = async (subscriptionId) => {
     const payments = await SubscriptionPayment
       .find({
         subscriptionId: subscriptionId,
-        dueDate: { $gte: today },
+        "dueDate.ist": { $gte: today },  // Local Date and Time
         extensionDate: null,
         isDateExtended: false,
       })
-      .sort("dueDate")
+      .sort("dueDate.utc")
       .limit(1)
       .exec();
 
@@ -25,7 +25,10 @@ const findNearestUpcomingPayment = async (subscriptionId) => {
     logger.info("Nearest upcoming payment found", {
       subscriptionId,
       paymentId: payments[0]._id,
-      dueDate: payments[0].dueDate,
+      dueDate: {
+        utc: payments[0].dueDate.utc,
+        ist: payments[0].dueDate.ist,
+      },
     });
 
     return payments[0];

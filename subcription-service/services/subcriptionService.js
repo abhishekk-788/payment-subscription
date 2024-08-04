@@ -2,7 +2,7 @@ const moment = require("moment-timezone");
 const { sendToQueue } = require("../utils/rabbitmq");
 const SubscriptionUser = require("../models/subscriptionUserModel");
 const logger = require("../utils/logger");
-const SubscriptionPaymentModel = require("../models/subscriptionPaymentsModel");
+const SubscriptionPayment = require("../models/subscriptionPaymentsModel");
 
 const schedulePayments = async (subscription) => {
   const subscriptionUser = await SubscriptionUser.findOne({ userId: subscription.userId });
@@ -43,14 +43,19 @@ const schedulePayments = async (subscription) => {
   }
 
   payments.forEach(async (payment) => {
-    
-    const subscriptionPayment = new SubscriptionPaymentModel({
+    logger.info("Payments scheduled successfully", payment);
+    const subscriptionPayment = new SubscriptionPayment({
       userId: payment.userId,
       subscriptionId: payment.subscriptionId,
       amount: payment.amount,
-      dueDate: payment.dueDate,
+      dueDate: {
+        utc: payment.dueDate.utc,
+        ist: payment.dueDate.ist,
+      },
       priority: payment.priority
     });
+
+    logger.info("Payment saved successfully", subscriptionPayment);
     
     await subscriptionPayment.save();
     
@@ -73,7 +78,7 @@ const schedulePayments = async (subscription) => {
   
 };
 
-scheduleOneTimePayment = (subscription) => {
+const scheduleOneTimePayment = (subscription) => {
   const subscriptionId = subscription._id;
   const { userId, amount } = subscription;
   const currentDate = new Date();
@@ -85,28 +90,42 @@ scheduleOneTimePayment = (subscription) => {
     userId: userId,
     subscriptionId: subscriptionId,
     amount: amount,
-    dueDate: dueDateIST,
+    dueDate: {
+      utc: dueDateUTC,
+      ist: dueDateIST,
+    },
     priority: 1
   });
 
   return payments;
 };
 
-scheduleNmonthPayment = (n, subscription) => {
+const scheduleNmonthPayment = (n, subscription) => {
   const subscriptionId = subscription._id;
   const { userId, amount } = subscription;
   
   const currentDate = new Date();
   const dueDateUTC = calculateDueDate(currentDate);
+  const dueDateIST = convertDateToIST(dueDateUTC);
+
+  // console.log("Date: ", dueDateUTC, dueDateIST);
 
   const payments = [];
   for (let i = 1; i <= n; i++) {
-    const newDueDate = moment(dueDateUTC).add(i, "months").toDate();
+    
+    const newDueDateUTC = moment(dueDateUTC).add(i, "months").toDate();
+    const newDueDateIST = moment(dueDateIST).add(i, "months").toDate();
+
+    // console.log("Inside Date: ", newDueDateUTC, newDueDateIST);
+
     payments.push({
       userId: userId,
       subscriptionId: subscriptionId,
       amount: amount,
-      dueDate: convertDateToIST(newDueDate),
+      dueDate: {
+        utc: newDueDateUTC,
+        ist: newDueDateIST,
+      },
       priority: i,
     });
   }

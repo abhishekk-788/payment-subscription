@@ -11,7 +11,8 @@ const sendMailNotification = async (data) => {
   let name = data.name;
 
   logger.info("Received notification data:", data);
-
+  
+  // Local Date and Time
   switch (data.type) {
     case "subscription_created":
       subject = `New Subscription Created - Amount: ${data.amount}`;
@@ -26,9 +27,9 @@ const sendMailNotification = async (data) => {
       message = `Hello ${name},\n\nYour EMI extension for the subscription with ID ${
         data.subscriptionId
       } has been processed successfully.\n\nThe payment was originally due on ${moment(
-        data.dueDate
+        data.dueDate.ist
       ).format("YYYY-MM-DD")}, and it has now been extended to ${moment(
-        data.extendedDueDate
+        data.extendedDueDate.ist
       ).format("YYYY-MM-DD")}. The extension amount is ${
         data.amount
       }\n\nPlease check the platform for more details.\n\nThank you.`;
@@ -36,7 +37,7 @@ const sendMailNotification = async (data) => {
     case "payment_reminder":
       subject = `Payment Reminder - Amount: ${data.amount}`;
       message = `Hello ${name},\n\nYour payment with ID ${data.paymentId} is due on ${moment(
-        data.dueDate
+        data.dueDate.ist
       ).format(
         "YYYY-MM-DD"
       )}.\n\nPlease check the platform for more details.\n\nThank you.`;

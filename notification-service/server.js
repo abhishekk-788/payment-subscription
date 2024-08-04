@@ -27,7 +27,7 @@ const startServer = async () => {
   });
 
   app.listen(PORT, () => {
-    console.log(`Payment Service running on port ${PORT}`);
+    console.log(`Notification Service running on port ${PORT}`);
   });
 };
 

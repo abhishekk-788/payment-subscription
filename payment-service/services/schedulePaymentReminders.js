@@ -15,8 +15,9 @@ const schedulePaymentReminders = async () => {
 
     const tomorrowIST = moment(todayIST).add(1, "days");
 
+    // Local Date and Time
     const filter = {
-      dueDate: {
+      "dueDate.ist": {
         $gte: todayIST.toDate(),
         $lt: tomorrowIST.toDate(),
       },
@@ -39,7 +40,10 @@ const schedulePaymentReminders = async () => {
           email: paymentUser.email,
           paymentId: payment._id,
           amount: payment.amount,
-          dueDate: payment.dueDate,
+          dueDate: {
+            utc: payment.dueDate.utc,
+            ist: payment.dueDate.ist,
+          },
         };
         await sendToQueue("notification_queue", reminderDataToQueue);
         console.log(`Reminder sent for payment ID: ${payment._id}`);

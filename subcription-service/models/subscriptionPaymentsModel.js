@@ -16,15 +16,16 @@ const subscriptionPaymentSchema = new mongoose.Schema({
     required: true,
   },
   dueDate: {
-    type: Date,
-    required: true,
+    utc: { type: Date, required: true },
+    ist: { type: Date, required: true },
   },
   priority: {
     type: Number,
     required: true,
   },
   extendedDueDate: {
-    type: Date,
+    utc: { type: Date },
+    ist: { type: Date },
   },
   extensionCharges: {
     type: Number,
@@ -39,35 +40,18 @@ const subscriptionPaymentSchema = new mongoose.Schema({
     default: "pending",
   },
   createdAt: {
-    type: Date,
-    default: Date.now,
+    utc: { type: Date},
+    ist: { type: Date},
   },
 });
 
-const convertDateToIST = (date) => {
-  const ISTDate = moment.tz(date, "Asia/Kolkata");
-  ISTDate.add(5, "hours").add(30, "minutes");
-  return ISTDate.toDate();
-};
-
-const calculateDueDate = (dueDate) => {
-  const dueDateMoment = moment(dueDate);
-  dueDateMoment.set({
-    hour: 23,
-    minute: 59,
-    second: 59,
-    millisecond: 0,
-  });
-  return dueDateMoment.toDate();
-};
-
 subscriptionPaymentSchema.pre("save", function (next) {
-  if (this.isNew || this.isModified("createdAt")) {
-    this.createdAt = convertDateToIST(this.createdAt);
-  }
-  if (this.isModified("dueDate")) {
-    this.dueDate = calculateDueDate(this.dueDate);
-    this.dueDate = convertDateToIST(this.dueDate);
+  if (this.isNew || this.isModified("createdAt") || this.isModified("createdAt.utc")) {
+    const now = new Date();
+    this.createdAt = {
+      utc: now, // Set UTC date
+      ist: moment(now).add(5, "hours").add(30, "minutes").toDate(),
+    };
   }
   next();
 });

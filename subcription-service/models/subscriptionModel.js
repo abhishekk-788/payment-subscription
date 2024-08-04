@@ -1,7 +1,5 @@
-// models/subscriptionModel.js
 const mongoose = require("mongoose");
 const moment = require("moment-timezone");
-
 
 const subscriptionSchema = new mongoose.Schema({
   userId: {
@@ -31,11 +29,12 @@ const subscriptionSchema = new mongoose.Schema({
 });
 
 subscriptionSchema.pre("save", function (next) {
-  if (!this.createdAt) {
+  if (!this.createdAt || !this.createdAt.utc) {
     const now = new Date();
-    this.createdAt = {}; // Ensure the createdAt object exists
-    this.createdAt.utc = now; // Set UTC date
-    this.createdAt.ist = moment.tz(now, "Asia/Kolkata").toDate(); // Convert to IST and set
+    this.createdAt = {
+      utc: now, // Set UTC date
+      ist: moment(now).add(5, "hours").add(30, "minutes").toDate(),
+    };
   }
   next();
 });

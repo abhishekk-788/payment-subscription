@@ -13,7 +13,11 @@ const UserSchema = {
     type: String,
     required: true,
     unique: true,
-  }
+  },
+  createdAt: {
+    utc: { type: Date },
+    ist: { type: Date },
+  },
 };
 
 module.exports = mongoose.model("SubscriptionUser", UserSchema);

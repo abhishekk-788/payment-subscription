@@ -1,5 +1,6 @@
 // models/notificationModel.js
 const mongoose = require("mongoose");
+const moment = require("moment-timezone");
 
 const notificationSchema = new mongoose.Schema({
   userId: {
@@ -21,13 +22,29 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ["subscription_created", "payment_created", "payment_extended", "payment_reminder"],
+    enum: [
+      "subscription_created",
+      "payment_created",
+      "payment_extended",
+      "payment_reminder",
+    ],
     required: true,
   },
   sentAt: {
-    type: Date,
-    default: Date.now,
+    utc: { type: Date },
+    ist: { type: Date },
   },
+});
+
+notificationSchema.pre("save", async function (next) {
+  if (!this.sentAt || !this.sentAt.utc) {
+    const now = new Date();
+    this.sentAt = {
+      utc: now, // Set UTC date
+      ist: moment(now).add(5, "hours").add(30, "minutes").toDate(),
+    };
+  }
+  next();
 });
 
 module.exports = mongoose.model("Notification", notificationSchema);

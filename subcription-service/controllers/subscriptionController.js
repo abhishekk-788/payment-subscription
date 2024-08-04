@@ -66,11 +66,12 @@ const extendSubscription = async (req, res) => {
 
     const extensionCharges = getExtensionCharge(payment.amount, extendPaymentDays);
 
-    let extendedDueDate = new Date(payment.dueDate);
+    let extendedDueDate = new Date(payment.dueDate.utc);
     extendedDueDate.setDate(
-      payment.dueDate.getDate() + extendPaymentDays
+      payment.dueDate.utc.getDate() + extendPaymentDays
     );
-    payment.extendedDueDate = extendedDueDate,
+    payment.extendedDueDate.utc = extendedDueDate,
+    payment.extendedDueDate.ist = moment(extendedDueDate).add(5, "hours").add(30, "minutes").toDate();
     payment.extensionCharges = extensionCharges;
     payment.isDateExtended = true;
 
@@ -89,8 +90,8 @@ const extendSubscription = async (req, res) => {
       name: subscriptionUser.name,
       email: subscriptionUser.email,
       amount: subscription.amount,
-      dueDate: payment.dueDate,
-      extendedDueDate: payment.extendedDueDate,
+      dueDate: payment.dueDate.utc,
+      extendedDueDate: payment.extendedDueDate.utc,
       extensionCharges: extensionCharges
     });
 
@@ -152,7 +153,7 @@ const getPaymentHistory = async (req, res) => {
     const payments = await SubscriptionPayment.find({
       userId: userId,
       status: "paid",
-    }).sort({ dueDate: 1 });
+    }).sort({ "dueDate.utc": 1 });
 
     logger.info("Payment history retrieved successfully", {
       userId: userId,
@@ -186,7 +187,7 @@ const getSubscriptionsByUser = async (req, res) => {
       let subcriptionInfo = {
         subscription: subscription,
       };
-      const payment = await SubscriptionPayment.find({ subscriptionId: subscription._id }).sort({ dueDate: 1 });
+      const payment = await SubscriptionPayment.find({ subscriptionId: subscription._id }).sort({ "dueDate.utc": 1 });
 
       subcriptionInfo.payment = payment;
       return subcriptionInfo;
