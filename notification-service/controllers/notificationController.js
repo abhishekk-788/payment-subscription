@@ -23,13 +23,15 @@ const sendMailNotification = async (data) => {
       break;
     case "payment_extended":
       subject = `EMI Extension - Amount: ${data.amount}`;
-      message = `Hello ${name},\n\nYour EMI extension for the payment with ID ${
-        data.paymentId
-      } has been processed.\n\nThe new due date is ${moment(
-        data.extendedDate
-      ).format(
-        "YYYY-MM-DD"
-      )}.\n\nPlease check the platform for more details.\n\nThank you.`;
+      message = `Hello ${name},\n\nYour EMI extension for the subscription with ID ${
+        data.subscriptionId
+      } has been processed successfully.\n\nThe payment was originally due on ${moment(
+        data.dueDate
+      ).format("YYYY-MM-DD")}, and it has now been extended to ${moment(
+        data.extendedDueDate
+      ).format("YYYY-MM-DD")}. The extension amount is ${
+        data.amount
+      }\n\nPlease check the platform for more details.\n\nThank you.`;
       break;
     case "payment_reminder":
       subject = `Payment Reminder - Amount: ${data.amount}`;

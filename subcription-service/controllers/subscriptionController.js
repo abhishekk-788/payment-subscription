@@ -78,6 +78,22 @@ const extendSubscription = async (req, res) => {
 
     sendToQueue("update_payment_queue", payment);
 
+    const subscriptionUser = await SubscriptionUser.findOne({
+      userId: subscription.userId,
+    });
+
+    sendToQueue("notification_queue", {
+      type: "payment_extended",
+      userId: payment.userId,
+      subscriptionId: subscriptionId,
+      name: subscriptionUser.name,
+      email: subscriptionUser.email,
+      amount: subscription.amount,
+      dueDate: payment.dueDate,
+      extendedDueDate: payment.extendedDueDate,
+      extensionCharges: extensionCharges
+    });
+
     logger.info("Subscription extension processed successfully", {
       subscriptionId,
       extensionCharges,
