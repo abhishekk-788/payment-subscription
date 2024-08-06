@@ -17,7 +17,7 @@ app.use(express.json());
 // Routes
 app.use("/api/notifications", notificationRoutes);
 
-const PORT = process.env.PORT || 5003;
+const PORT = process.env.PORT || 3000;
 
 const startServer = async () => {
 

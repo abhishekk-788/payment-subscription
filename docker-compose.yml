@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"    # AMQP protocol port
+      - "15672:15672"  # Management interface
+    environment:
+      RABBITMQ_DEFAULT_USER: "guest"
+      RABBITMQ_DEFAULT_PASS: "guest"
+    volumes:
+      - "rabbitmq_data:/var/lib/rabbitmq"
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  user-service:
+    build: ./user-service
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    env_file:
+      - ./user-service/.env
+    networks:
+      - backend
+    ports:
+      - "5005:3000"  # Maps host port 5005 to container port 3000
+
+  payment-service:
+    build: ./payment-service
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    env_file:
+      - ./payment-service/.env
+    networks:
+      - backend
+    ports:
+      - "5002:3000"  # Maps host port 5002 to container port 3000
+
+  notification-service:
+    build: ./notification-service
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    env_file:
+      - ./notification-service/.env
+    networks:
+      - backend
+    ports:
+      - "5003:3000"  # Maps host port 5003 to container port 3000
+  
+  subcription-service:
+    build: ./subcription-service
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    env_file:
+      - ./subcription-service/.env
+    networks:
+      - backend
+    ports:
+      - "5004:3000"  # Maps host port 5004 to container port 3000
+
+volumes:
+  rabbitmq_data:
+
+networks:
+  backend:

@@ -22,7 +22,7 @@ app.use(express.json());
 // Routes
 app.use("/api/payments", paymentRoutes);
 
-const PORT = process.env.PORT || 5002;
+const PORT = process.env.PORT || 3000;
 
 const startServer = async () => {
   

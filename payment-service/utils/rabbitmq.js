@@ -4,18 +4,36 @@ const logger = require("./logger"); // Path to your logger utility
 require("dotenv").config();
 
 const RABBITMQ_URL = process.env.RABBITMQ_URL || "amqp://localhost:5672";
+// const RABBITMQ_URL = "amqp://localhost:5672";
 
-const connectRabbitMQ = async () => {
+const MAX_RETRIES = 10;
+const RETRY_INTERVAL = 5000; // in milliseconds
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const connectRabbitMQ = async (retries = MAX_RETRIES) => {
   try {
     const connection = await amqp.connect(RABBITMQ_URL);
     const channel = await connection.createChannel();
     console.log("Connected to RabbitMQ");
     return channel;
   } catch (error) {
-    console.error("Failed to connect to RabbitMQ:", error);
-    process.exit(1);
+    if (retries === 0) {
+      console.error("Failed to connect to RabbitMQ:", error);
+      process.exit(1);
+    } else {
+      console.error(
+        `Retrying connection to RabbitMQ (${
+          MAX_RETRIES - retries + 1
+        }/${MAX_RETRIES})...`
+      );
+      await sleep(RETRY_INTERVAL);
+      return connectRabbitMQ(retries - 1);
+    }
   }
 };
+
+
 const sendToQueue = async (queue, message) => {
   const channel = await connectRabbitMQ();
   channel.assertQueue(queue, { durable: true });

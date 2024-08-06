@@ -18,7 +18,7 @@ app.use(express.json());
 // Routes
 app.use("/api/subscriptions", subscriptionRoutes);
 
-const PORT = process.env.PORT || 5004;
+const PORT = process.env.PORT || 3000;
 
 const startServer = async () => {
 
