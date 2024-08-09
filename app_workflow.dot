@@ -1,0 +1,66 @@
+digraph G {
+    rankdir=LR;
+
+    subgraph cluster_UserService {
+        label = "User Service";
+        color = lightblue;
+        node [style=filled,color=lightblue];
+        RegisterUser;
+        RegisterUser -> UserCollections [label="/register"];
+        UserCollections [shape=square, label="user DB"];
+    }
+
+    subgraph cluster_PaymentService {
+        label = "Payment Service";
+        color = lightcoral;
+        node [style=filled,color=lightcoral];
+        PaymentUserCollections [shape=square, label="payment.user DB"];
+        PaymentServiceSchedule [shape=square, label="Schedule payments\n(payments collection)"];
+        PaymentServiceExtend [label="Extend payments"];
+        CronJob [label="Cron job (7:00 am)\nStripe payment gateway"];
+        PaymentServiceSchedule -> CronJob;
+        PaymentServiceExtend -> CronJob;
+        CronJob -> PaymentSuccess [label="If payment success"];
+        CronJob -> PaymentFailed [label="If payment fails"];
+        PaymentSuccess -> SendMailSuccess [label="Send mail success\n(via Notification Service)"];
+        PaymentFailed -> SendMailFailed [label="Send mail failure\n(via Notification Service)"];
+    }
+
+    subgraph cluster_SubscriptionService {
+        label = "Subscription Service";
+        color = lightgreen;
+        node [style=filled,color=lightgreen];
+        SubscriptionUserCollections [shape=square, label="subcription.user DB", height=0.2];
+        CreateSubscription -> SchedulePayments [label="/createSubcription"];
+        SchedulePayments [shape=square, label="Schedule payments\n(subcription.payments DB)"];
+        SchedulePayments -> PaymentServiceSchedule [style=dotted];
+        CreateSubscription -> SendMailCreate [label="Send mail\n(via Notification Service)"];
+        SendMailCreate -> NotificationServiceQueue [style=dotted];
+
+        ExtendSubscription -> FindPayment [label="/extend"];
+        FindPayment [label="Find nearest payment"];
+        FindPayment -> PaymentServiceExtend [style=dotted, label="Request to extend payment"];
+        FindPayment -> SendMailExtend [label="Send mail\n(via Notification Service)"];
+        SendMailExtend -> NotificationServiceQueue [style=dotted];
+    }
+
+    subgraph cluster_NotificationService {
+        label = "Notification Service";
+        color = lightsalmon;
+        node [style=filled,color=lightsalmon];
+        NotificationServiceQueue [label="Notification Queue"];
+        NotificationServiceQueue -> SendMailCreate;
+        NotificationServiceQueue -> SendMailExtend;
+        NotificationServiceQueue -> SendMailSuccess;
+        NotificationServiceQueue -> SendMailFailed;
+        Reminders [label="Reminders for failed payments\n(Mail sent every 2 hours)"];
+        MinimumBalance [label="Minimum balance\n(Mail sent one day prior payment)"];
+        NotificationServiceQueue -> Reminders;
+        NotificationServiceQueue -> MinimumBalance;
+    }
+
+    UserCollections -> PaymentUserCollections [style=dotted];
+    UserCollections -> SubscriptionUserCollections [style=dotted];
+    PaymentServiceSchedule -> CronJob;
+    PaymentServiceExtend -> CronJob;
+}
