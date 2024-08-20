@@ -23,29 +23,60 @@ const PORT = process.env.PORT || 3000;
 const startServer = async () => {
 
   // Start consuming user registration messages
-  consumeMessages("subscription_user_registration_queue", async (user) => {
-    logger.info("User registration received in subscription service", {
-      userId: user.userId,
-      email: user.email,
-    });
-    try {
-      const subscriptionUser = new SubscriptionUserModel({
+  consumeMessages("subscription_user_queue", async (data) => {
+    if (data.type === "user_registration") {
+      const user = data;
+      logger.info("User registration received in subscription service", {
         userId: user.userId,
-        name: user.name,
         email: user.email,
-        createdAt: {
-          utc: user.createdAt.utc,
-          ist: user.createdAt.ist,
-        },
       });
-      await subscriptionUser.save();
+      try {
+        const subscriptionUser = new SubscriptionUserModel({
+          userId: user.userId,
+          name: user.name,
+          email: user.email,
+          createdAt: {
+            utc: user.createdAt.utc,
+            ist: user.createdAt.ist,
+          },
+        });
+        await subscriptionUser.save();
 
-      logger.info("subscriptionUser saved successfully", subscriptionUser);
-    } catch (error) {
-      console.error(
-        "Failed to store user data in subscription service:",
-        error
-      );
+        logger.info("subscriptionUser saved successfully", subscriptionUser);
+      } catch (error) {
+        console.error(
+          "Failed to store user data in subscription service:",
+          error
+        );
+      }
+    } else {
+      const user = data;
+      logger.info("User Updation received in subscription service", {
+        userId: user.userId,
+      });
+
+      try {
+        const subscriptionUser = await SubscriptionUserModel.findOne({
+          userId: user.userId,
+        });
+
+        if (!subscriptionUser) {
+          logger.error("User not found", { userId: user.userId });
+          throw { msg: "User not found" };
+        }
+
+        subscriptionUser.paymentMethods = user.paymentMethods;
+        subscriptionUser.stripeCustomerId = user.stripeCustomerId;
+
+        subscriptionUser.save();
+
+        logger.info("SubscriptionUser updated successfully", subscriptionUser);
+      } catch (error) {
+        console.error(
+          "Failed to update user data in subscription service:",
+          error
+        );
+      }
     }
   });
 

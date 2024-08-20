@@ -2,8 +2,8 @@
 const amqp = require("amqplib");
 const logger = require("./logger"); // Path to your logger utility
 
-const RABBITMQ_URL = process.env.RABBITMQ_URL || "amqp://localhost:5672";
-// const RABBITMQ_URL = "amqp://localhost:5672";
+// const RABBITMQ_URL = process.env.RABBITMQ_URL || "amqp://localhost:5672";
+const RABBITMQ_URL = "amqp://localhost:5672";
 
 const MAX_RETRIES = 10;
 const RETRY_INTERVAL = 5000; // in milliseconds

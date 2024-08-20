@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Add Payment Method</title>
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h2 {
+            text-align: center;
+        }
+
+        #payment-form {
+            margin-top: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        #card-element {
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+
+        #submitPayment {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+        }
+
+        #submitPayment:hover {
+            background-color: #45a049;
+        }
+
+        #card-errors {
+            color: red;
+            margin-top: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>Add Payment Method</h2>
+    <form id="payment-form">
+        <div class="form-group">
+            <label for="card-element">Card Details</label>
+            <div id="card-element"><!-- Stripe Elements will be inserted here --></div>
+        </div>
+
+        <button id="submitPayment" type="button">Add Payment Method</button>
+    </form>
+
+    <!-- Display any error messages -->
+    <div id="card-errors" role="alert"></div>
+
+    <script>
+        // Fetch the Stripe publishable key from your server
+        fetch('/api/users/get-stripe-key')
+            .then(response => response.json())
+            .then(data => {
+                const stripe = Stripe(data.publishableKey);
+                const elements = stripe.elements();
+                const card = elements.create('card', {
+                    style: {
+                        base: {
+                            fontSize: '16px',
+                            color: '#32325d',
+                            '::placeholder': {
+                                color: '#aab7c4',
+                            },
+                        },
+                        invalid: {
+                            color: '#fa755a',
+                            iconColor: '#fa755a',
+                        },
+                    },
+                });
+
+                card.mount('#card-element');
+
+                // Handle form submission
+                document.getElementById('submitPayment').addEventListener('click', async () => {
+                    console.log('Submit payment button clicked.');
+
+                    const userId = localStorage.getItem('userId');
+                    if (!userId) {
+                        console.error('User not logged in!');
+                        alert('User not logged in!');
+                        return;
+                    }
+
+                    // Get the auth token using the user ID
+                    try {
+                        const tokenResponse = await fetch(`api/users/get-auth-token?userId=${userId}`);
+                        const tokenResult = await tokenResponse.json();
+
+                        if (!tokenResponse.ok) {
+                            console.error('Failed to retrieve auth token:', tokenResult.message);
+                            document.getElementById('card-errors').textContent = 'Failed to retrieve auth token. Please log in again.';
+                            return;
+                        }
+
+                        const authToken = tokenResult.token;
+
+                        const { paymentMethod, error } = await stripe.createPaymentMethod({
+                            type: 'card',
+                            card: card,
+                        });
+
+                        if (error) {
+                            console.error('Stripe payment method creation error:', error.message);
+                            document.getElementById('card-errors').textContent = error.message;
+                        } else {
+                            console.log('Payment method created successfully:');
+                            document.getElementById('card-errors').textContent = '';
+
+                            const payload = { 
+                                "paymentMethodId": paymentMethod.id, 
+                                "userId": userId 
+                            };
+
+                            const response = await fetch('/api/users/add-payment-method', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${authToken}`,
+                                },
+                                body: JSON.stringify(payload),
+                            });
+
+                            if (response.status === 401) {
+                                console.error('Unauthorized access - User must be logged in.');
+                                document.getElementById('card-errors').textContent = 'You must be logged in to add a payment method. Please log in and try again.';
+                            } else if (!response.ok) {
+                                const errorResult = await response.json();
+                                console.error('Error adding payment method:', errorResult.message);
+                                document.getElementById('card-errors').textContent = 'An error occurred while adding the payment method. Please try again later.';
+                            } else {
+                                const result = await response.json();
+                                console.log('Payment method added successfully:', result);
+                                if (result.success) {
+                                    alert('Payment method added successfully!');
+                                } else {
+                                    document.getElementById('card-errors').textContent = 'Failed to add payment method.';
+                                }
+                            }
+                        }
+                    } catch (err) {
+                        console.error('An error occurred during the process:', err);
+                        document.getElementById('card-errors').textContent = 'An error occurred. Please try again later.';
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching Stripe publishable key:', error);
+                document.getElementById('card-errors').textContent = 'Error fetching Stripe publishable key. Please try again later.';
+            });
+    </script>
+
+</body>
+
+</html>

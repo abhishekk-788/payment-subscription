@@ -6,29 +6,34 @@ const moment = require("moment-timezone");
 const PaymentUser = require("../models/paymentUserModel");
 
 const schedulePaymentReminders = async () => {
-  cron.schedule('0 */2 * * *', async () => {
-    console.log("Check for scheduled payments...");
+  cron.schedule("30 5 * * *", async () => {
+    console.log("Checking for scheduled payments...");
+
+    // Get the current date in IST
     const todayIST = moment()
       .tz("Asia/Kolkata")
       .startOf("day")
       .add({ hours: 5, minutes: 30 });
 
+    // Calculate tomorrow's and the day after tomorrow's date in IST
     const tomorrowIST = moment(todayIST).add(1, "days");
+    const dayAfterTomorrowIST = moment(todayIST).add(2, "days");
 
-    // Local Date and Time
+    // Filter to find payments due the day after tomorrow
     const filter = {
       "dueDate.ist": {
-        $gte: todayIST.toDate(),
-        $lt: tomorrowIST.toDate(),
+        $gte: tomorrowIST.toDate(),
+        $lt: dayAfterTomorrowIST.toDate(),
       },
       status: "pending",
     };
     console.log(filter);
 
-    const paymentsDueToday = await Payment.find(filter);
+    // Find payments due the day after tomorrow
+    const paymentsDueTomorrow = await Payment.find(filter);
 
-    if (paymentsDueToday.length > 0) {
-      paymentsDueToday.forEach(async (payment) => {
+    if (paymentsDueTomorrow.length > 0) {
+      paymentsDueTomorrow.forEach(async (payment) => {
         const paymentUser = await PaymentUser.findOne({
           userId: payment.userId,
         });
@@ -44,15 +49,17 @@ const schedulePaymentReminders = async () => {
             utc: payment.dueDate.utc,
             ist: payment.dueDate.ist,
           },
+          message: `Your payment of amount ${payment.amount} will be debited tomorrow. Please maintain sufficient balance.`,
         };
         await sendToQueue("notification_queue", reminderDataToQueue);
         console.log(`Reminder sent for payment ID: ${payment._id}`);
       });
     } else {
-      console.log("No payments due today.");
+      console.log("No payments due tomorrow.");
     }
   });
 };
+
 
 module.exports = {
   schedulePaymentReminders,

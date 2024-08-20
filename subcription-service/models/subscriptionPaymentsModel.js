@@ -15,9 +15,18 @@ const subscriptionPaymentSchema = new mongoose.Schema({
     type: Number,
     required: true,
   },
+  paymentMethodId: {
+    type: String,
+    required: true,  
+  },
   dueDate: {
     utc: { type: Date, required: true },
     ist: { type: Date, required: true },
+  },
+  paymentType: {
+    type: String,
+    enum: ["one_time", "recurring"],
+    required: true,
   },
   priority: {
     type: Number,
@@ -36,12 +45,12 @@ const subscriptionPaymentSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ["pending", "processing", "paid", "overdue"],
+    enum: ["pending", "processing", "paid", "overdue", "failed"],
     default: "pending",
   },
   createdAt: {
-    utc: { type: Date},
-    ist: { type: Date},
+    utc: { type: Date },
+    ist: { type: Date },
   },
 });
 

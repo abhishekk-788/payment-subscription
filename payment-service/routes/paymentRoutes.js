@@ -1,16 +1,18 @@
 const express = require("express");
 const {
-  createPayment,
-  extendPayment,
   getPaymentById,
+  savePaymentMethod,
+  getStripePublishableKey,
 } = require("../controllers/paymentController");
 
 const router = express.Router();
 
-// Create a new payment
-router.post("/", createPayment);
-
 // Get payment by ID
 router.get("/:paymentId", getPaymentById);
+
+router.post("/save-payment-method", savePaymentMethod);
+
+// Get Stripe publishable key
+router.get("/get-stripe-key", getStripePublishableKey);
 
 module.exports = router;

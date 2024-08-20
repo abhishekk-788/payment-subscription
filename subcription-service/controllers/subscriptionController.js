@@ -1,7 +1,7 @@
 const Subscription = require("../models/subscriptionModel");
 const logger = require("../utils/logger"); // Path to your logger utility
 const SubscriptionUser = require("../models/subscriptionUserModel");
-const schedulePayments = require("../services/subcriptionService");
+const { schedulePayments } = require("../services/subcriptionService");
 const { findNearestUpcomingPayment, getExtensionCharge } = require("../services/subcriptionExtensionService");
 const { sendToQueue } = require("../utils/rabbitmq");
 const SubscriptionPayment = require("../models/subscriptionPaymentsModel");
@@ -19,6 +19,7 @@ const createSubscription = async (req, res) => {
     logger.info("Create subscription request received", {
       userId,
       subscriptionType,
+      subscriptionUser
     });
 
     
@@ -26,6 +27,7 @@ const createSubscription = async (req, res) => {
       userId: userId,
       subscriptionType: subscriptionType,
       amount: amount,
+      paymentMethodId: subscriptionUser.paymentMethods.find((method) => method.isDefault).id,
     });
 
     await subscription.save();

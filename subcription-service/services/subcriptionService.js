@@ -48,11 +48,13 @@ const schedulePayments = async (subscription) => {
       userId: payment.userId,
       subscriptionId: payment.subscriptionId,
       amount: payment.amount,
+      paymentMethodId: subscription.paymentMethodId,
       dueDate: {
         utc: payment.dueDate.utc,
         ist: payment.dueDate.ist,
       },
-      priority: payment.priority
+      priority: payment.priority,
+      paymentType: payment.paymentType,
     });
 
     logger.info("Payment saved successfully", subscriptionPayment);
@@ -94,6 +96,8 @@ const scheduleOneTimePayment = (subscription) => {
       utc: dueDateUTC,
       ist: dueDateIST,
     },
+    paymentMethodId: subscription.paymentMethodId,
+    paymentType: "one_time",
     priority: 1
   });
 
@@ -122,10 +126,12 @@ const scheduleNmonthPayment = (n, subscription) => {
       userId: userId,
       subscriptionId: subscriptionId,
       amount: amount,
+      paymentMethodId: subscription.paymentMethodId,
       dueDate: {
         utc: newDueDateUTC,
         ist: newDueDateIST,
       },
+      paymentType: "recurring",
       priority: i,
     });
   }
@@ -149,4 +155,7 @@ const calculateDueDate = (dueDate) => {
   return dueDateMoment.toDate();
 };
 
-module.exports = schedulePayments;
+
+module.exports = {
+  schedulePayments,
+};

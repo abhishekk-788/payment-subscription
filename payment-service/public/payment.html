@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Confirmation</title>
+    <script src="https://js.stripe.com/v3/"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 400px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .status {
+            margin-top: 20px;
+            font-size: 18px;
+            color: green;
+        }
+
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>Completing Your Payment</h2>
+    <p>Please wait...</p>
+    <div id="status" class="status"></div>
+
+    <script>
+        fetch('/api/users/get-stripe-key')
+            .then(response => response.json())
+            .then(data => {
+                document.addEventListener('DOMContentLoaded', async () => {
+                    const stripe = Stripe(data.publishableKey);
+
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const clientSecret = urlParams.get('client_secret');
+
+                    if (!clientSecret) {
+                        document.getElementById('status').textContent = 'Payment failed: No client secret found.';
+                        document.getElementById('status').classList.add('error');
+                        return;
+                    }
+
+                    const { error, paymentIntent } = await stripe.retrievePaymentIntent(clientSecret);
+
+                    if (error) {
+                        document.getElementById('status').textContent = `Payment failed: ${error.message}`;
+                        document.getElementById('status').classList.add('error');
+                    } else if (paymentIntent.status === 'succeeded') {
+                        document.getElementById('status').textContent = 'Payment successful! Thank you for your purchase.';
+                    } else {
+                        document.getElementById('status').textContent = 'Payment incomplete. Please complete the payment process.';
+                        document.getElementById('status').classList.add('error');
+                    }
+                });
+            });
+    </script>
+</body>
+
+</html>
