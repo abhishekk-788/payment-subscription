@@ -30,6 +30,7 @@ router.get("/profile", auth, getUserProfile);
 // Logout route
 router.post("/logout", logoutUser);
 
+// get auth token
 router.get("/get-auth-token", getAuthToken);
 
 // Get Stripe publishable key
@@ -42,6 +43,6 @@ router.post("/set-default-payment-method", auth, setDefaultPaymentMethod);
 
 router.get("/payment-methods", auth, getPaymentMethods);
 
-router.delete("/payment-methods/:id", auth, deletePaymentMethod);
+router.delete("/payment-methods", auth, deletePaymentMethod);
 
 module.exports = router;

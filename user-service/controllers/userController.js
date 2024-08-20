@@ -7,6 +7,7 @@ const { jwtr, redisClient } = require("../middleware/jwt-redis");
 const sendToQueue = require("../utils/rabbitmq");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 require("dotenv").config();
+const mongoose = require("mongoose");
 
 // Register a new user
 const registerUser = async (req, res) => {
@@ -43,12 +44,7 @@ const registerUser = async (req, res) => {
     await sendToQueue("payment_user_queue", dataToQueue);
     await sendToQueue("subscription_user_queue", dataToQueue);
 
-    const token = await jwtr.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
-    });
-    logger.info("JWT token generated", token, user._id);
-
-    res.status(201).json({ token });
+    res.status(201).json({ "message": "User registration successful" });
     logger.info("User registered successfully", { userId: user._id });
   } catch (err) {
     logger.error("Error in user registration", { error: err.message });
@@ -60,25 +56,25 @@ const registerUser = async (req, res) => {
 // Login user
 const loginUser = async (req, res) => {
   const { email, password } = req.body;
-  logger.info("Login request received", { email });
+  logger.info("Login request received", { email, password });
 
   try {
     const user = await User.findOne({ email });
     if (!user) {
-      logger.info("Invalid credentials", { email });
+      logger.info("Invalid Email credentials", { email });
       return res.status(400).json({ msg: "Invalid credentials" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      logger.info("Invalid credentials", { email });
+      logger.info("Invalid Password credentials", { email });
       return res.status(400).json({ msg: "Invalid credentials" });
     }
 
     const token = await jwtr.sign({ id: user._id }, process.env.JWT_SECRET, {
       expiresIn: "1h",
     });
-    logger.info("JWT token generated", { userId: user._id });
+    logger.info("JWT token generated", { token: token });
 
     await redisClient.set(`authToken:${user._id}`, token, "EX", 3600);
 
@@ -96,8 +92,16 @@ const getUserProfile = async (req, res) => {
   const { userId } = req.query;
   logger.info("Get user profile request received", { userId: userId });
 
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return res.status(400).json({ msg: "User not found" });
+  }
+
   try {
     const user = await User.findById(userId).select("-password");
+    if (!user) {
+      res.json("User not found");
+      return;
+    }
     res.json(user);
     logger.info("User profile retrieved successfully", { userId: userId });
   } catch (err) {
@@ -229,57 +233,185 @@ const addPaymentMethod = async (req, res) => {
   }
 };
 
-const setDefaultPaymentMethod = async (req, res) => { 
-  const { paymentMethodId } = req.body;
-  const userId = req.user._id;
+const setDefaultPaymentMethod = async (req, res) => {
+  const { paymentMethodId, userId } = req.body;
+  
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return res.status(400).json({ msg: "User not found" });
+  }
 
   try {
     const user = await User.findById(userId);
+    if (!user) {
+      return res
+       .status(404)
+       .json({ success: false, message: "User not found" });
+    }
+    logger.info("User found", { user });
 
-    // Set all payment methods to not be default
+    // Ensure the payment method exists in the user's account
+    const paymentMethodExists = user.paymentMethods.find(
+      (method) => method.id == paymentMethodId
+    );
+
+    if (!paymentMethodExists) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Payment method not found" });
+    }
+
+    logger.info("Payment method found", { paymentMethodExists });
+
+    if (paymentMethodExists && paymentMethodExists.isDefault) { 
+      return res
+       .status(400)
+       .json({ success: false, message: "Payment method is already default" });
+    }
+
+    // Update the default payment method on Stripe
+    await stripe.customers.update(user.stripeCustomerId, {
+      invoice_settings: {
+        default_payment_method: paymentMethodId,
+      },
+    });
+
+    logger.info("Default payment method updated on Stripe", {
+      customerId: user.stripeCustomerId,
+      paymentMethodId,
+    });
+
+    // Update the default payment method in the local database
     user.paymentMethods.forEach((method) => {
-      method.isDefault = method.id === paymentMethodId;
+      if (method.id === paymentMethodId) {
+        method.isDefault = true;
+      } else {
+        method.isDefault = false;
+      }
     });
 
     await user.save();
+
+    const dataToQueue = {
+      type: "user_payment_method_updated",
+      userId: user._id,
+      paymentMethods: user.paymentMethods,
+      stripeCustomerId: user.stripeCustomerId,
+    };
+
+    await sendToQueue("payment_user_queue", dataToQueue);
+    await sendToQueue("subscription_user_queue", dataToQueue);
 
     res.json({ success: true });
   } catch (error) {
     console.error("Error setting default payment method:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
-}
+};
 
-const getPaymentMethods = async (req, res) => { 
-  const userId = req.user._id;
+const getPaymentMethods = async (req, res) => {
+  const userId = req.query.userId;
+
+  logger.info("Get payment methods request received", { userId });
+  
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    return res.status(400).json({ msg: "User not found" });
+  }
 
   try {
     const user = await User.findById(userId).select("paymentMethods");
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
+    logger.info("User found", { user });
 
     res.json(user.paymentMethods);
   } catch (error) {
     console.error("Error retrieving payment methods:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
-}
+};
 
-const deletePaymentMethod = async (req, res) => { 
-  const { paymentMethodId } = req.params;
-  const userId = req.user._id;
+const deletePaymentMethod = async (req, res) => {
+  const { paymentMethodId } = req.body;
+  const userId = req.query.userId;
 
   try {
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { $pull: { paymentMethods: { id: paymentMethodId } } },
-      { new: true }
+    // Find the user by ID
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
+
+    // Check if the payment method to be deleted is in the user's payment methods
+    const paymentMethod = user.paymentMethods.find(
+      (method) => method.id === paymentMethodId
     );
 
-    res.json({ success: true });
+    if (!paymentMethod) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Payment method not found" });
+    }
+
+    // Ensure that the payment method to be deleted is not the default one
+    if (paymentMethod.isDefault) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Cannot delete the default payment method. Please set another payment method as default first.",
+      });
+    }
+
+    // Detach the payment method from Stripe Customer
+    await stripe.paymentMethods.detach(paymentMethodId);
+
+    // Remove the payment method from the user's paymentMethods array in the local database
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $pull: { paymentMethods: { id: paymentMethodId } } },
+      { new: true } // Returns the updated user document
+    );
+
+    // Fetch the updated payment methods from Stripe
+    const paymentMethods = await stripe.paymentMethods.list({
+      customer: user.stripeCustomerId,
+      type: "card",
+    });
+
+    // Update the user's payment methods in MongoDB
+    const updatedUserWithStripeMethods = await User.findByIdAndUpdate(
+      userId,
+      { paymentMethods: paymentMethods.data },
+      { new: true } // Returns the updated user document
+    );
+
+    const dataToQueue = {
+      type: "user_payment_method_updated",
+      userId: updatedUserWithStripeMethods._id,
+      paymentMethods: updatedUserWithStripeMethods.paymentMethods,
+      stripeCustomerId: updatedUserWithStripeMethods.stripeCustomerId,
+    };
+
+    await sendToQueue("payment_user_queue", dataToQueue);
+    await sendToQueue("subscription_user_queue", dataToQueue);
+
+    res.json({
+      success: true,
+      message: "Payment method deleted successfully",
+      paymentMethods: updatedUserWithStripeMethods.paymentMethods,
+    });
   } catch (error) {
     console.error("Error deleting payment method:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
-}
+};
+
 
 const getStripePublishableKey = (req, res) => {
   res.json({ publishableKey: process.env.STRIPE_PUBLISHABLE_KEY });
