@@ -1,5 +1,5 @@
 ### Design Overview
-![subscription_management_system](https://github.com/user-attachments/assets/229d51d2-54a5-4e6a-b3f4-98954b21f758)
+![subscription_management_system](https://github.com/user-attachments/assets/4fa5c48a-9b2b-41c3-8c71-e5ef58fd4282)
 
 ### System Design Definition
 
