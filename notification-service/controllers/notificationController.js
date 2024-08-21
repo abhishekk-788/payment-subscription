@@ -24,7 +24,6 @@ const sendMailNotification = async (data) => {
         data.otp
       }.\n\nPlease use this OTP to reset your password.\n\nThank you.`;
       break;
-    case "subscription_cancelled":
     case "subscription_created":
       subject = `New Subscription Created - Amount: ${data.amount}`;
       message = `Hello ${name},\n\nA new subscription has been created with an amount of ${data.amount}.\n\nPlease check the platform for more details.\n\nThank you.`;

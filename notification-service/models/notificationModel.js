@@ -23,6 +23,8 @@ const notificationSchema = new mongoose.Schema({
   type: {
     type: String,
     enum: [
+      "user_registration",
+      "reset_password_otp",
       "subscription_created",
       "payment_created",
       "payment_extended",

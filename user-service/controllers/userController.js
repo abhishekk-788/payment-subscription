@@ -119,6 +119,7 @@ const forgotPassword = async (req, res) => {
       email: user.email,
       otp: otp,
     });
+    
     logger.info(`OTP: ${otp} sent to ${email} via notification service`);
     
     res.json({ success: true, message: 'OTP has been sent to your email.' });
