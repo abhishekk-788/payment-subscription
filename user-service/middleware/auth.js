@@ -1,6 +1,5 @@
 // middleware/auth.js
-const jwt = require("jsonwebtoken");
-const { jwtr } = require("../middleware/jwt-redis");
+const { jwtr, redisClient } = require("../middleware/jwt-redis");
 const logger = require("../utils/logger");
 require("dotenv").config();
 
@@ -13,6 +12,19 @@ const auth = async (req, res, next) => {
   }
 
   try {
+    // Verify if the token is still valid in Redis
+    const userId = await jwtr.decode(token).id;
+    const redisToken = await redisClient.get(`authToken:${userId}`);
+
+    if (!redisToken || redisToken !== token) {
+      logger.info("Token has been revoked or does not exist in Redis", {
+        token,
+      });
+      return res
+        .status(401)
+        .json({ msg: "Token has been revoked. Please login again." });
+    }
+
     // Attempt to verify the token; if it's invalid or destroyed, this will fail
     const decoded = await jwtr.verify(token, process.env.JWT_SECRET);
     logger.info("Token decoded successfully");
@@ -40,5 +52,6 @@ const auth = async (req, res, next) => {
     }
   }
 };
+
 
 module.exports = auth;

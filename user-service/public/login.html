@@ -50,7 +50,10 @@
             border-radius: 4px;
         }
 
-        #submitLogin {
+        #submitLogin,
+        #submitOtp,
+        #submitNewPassword,
+        #submitForgotPassword {
             background-color: #4CAF50;
             color: white;
             padding: 10px 15px;
@@ -62,7 +65,10 @@
             margin-top: 20px;
         }
 
-        #submitLogin:hover {
+        #submitLogin:hover,
+        #submitOtp:hover,
+        #submitNewPassword:hover,
+        #submitForgotPassword:hover {
             background-color: #45a049;
         }
 
@@ -70,6 +76,19 @@
             color: red;
             margin-top: 10px;
             text-align: center;
+        }
+
+        #forgot-password-link {
+            margin-top: 10px;
+            display: block;
+            color: #4CAF50;
+            cursor: pointer;
+        }
+
+        #forgot-password-form,
+        #otp-form,
+        #reset-password-form {
+            display: none;
         }
 
         #welcome-message {
@@ -83,7 +102,7 @@
 
 <body>
     <div id="login-container">
-        <h2>Login to PayFlex</h2>
+        <h2 id="form-heading">Login to PayFlex</h2>
         <form id="login-form">
             <div class="form-group">
                 <label for="email">Email:</label>
@@ -96,17 +115,54 @@
             <button id="submitLogin" type="button">Login</button>
         </form>
 
+        <a id="forgot-password-link">Forgot Password?</a>
+
+        <!-- Forgot Password Form -->
+        <form id="forgot-password-form">
+            <div class="form-group">
+                <label for="forgot-email">Enter your email address:</label>
+                <input type="email" id="forgot-email" name="forgot-email" required>
+            </div>
+            <button id="submitForgotPassword" type="button">Send OTP</button>
+        </form>
+
+        <!-- OTP Form -->
+        <form id="otp-form">
+            <div class="form-group">
+                <label for="otp">Enter OTP:</label>
+                <input type="text" id="otp" name="otp" required>
+            </div>
+            <button id="submitOtp" type="button">Verify OTP</button>
+        </form>
+
+        <!-- Reset Password Form -->
+        <form id="reset-password-form">
+            <div class="form-group">
+                <label for="new-password">Enter New Password:</label>
+                <input type="password" id="new-password" name="new-password" required>
+            </div>
+            <button id="submitNewPassword" type="button">Reset Password</button>
+        </form>
+
         <!-- Display any error messages -->
         <div id="login-errors" role="alert"></div>
 
         <!-- Success Message -->
         <div id="welcome-message">
-            <h3>Login Successful!</h3>
-            <p>Welcome to PayFlex</p>
+            <h3>Success!</h3>
+            <p id="welcome-text"></p>
         </div>
     </div>
 
     <script>
+        document.getElementById('forgot-password-link').addEventListener('click', () => {
+            document.getElementById('login-form').style.display = 'none';
+            document.getElementById('forgot-password-link').style.display = 'none';
+            document.getElementById('forgot-password-form').style.display = 'block';
+            document.getElementById('form-heading').style.display = 'none';
+            document.getElementById('login-errors').textContent = '';
+        });
+
         async function loginUser() {
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
@@ -131,13 +187,84 @@
                 // Hide login form and show welcome message
                 document.getElementById('login-form').style.display = 'none';
                 document.getElementById('login-errors').style.display = 'none';
+                document.getElementById('welcome-text').textContent = 'Login Successful! Welcome to PayFlex';
                 document.getElementById('welcome-message').style.display = 'block';
+                document.getElementById('forgot-password-link').style.display = 'none';
+                document.getElementById('form-heading').style.display = 'none';
             } else {
                 document.getElementById('login-errors').textContent = 'Login failed: ' + result.msg;
             }
         }
 
         document.getElementById('submitLogin').addEventListener('click', loginUser);
+
+        async function sendOtp() {
+            const email = document.getElementById('forgot-email').value;
+
+            const response = await fetch('/api/users/forgot-password', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email }),
+            });
+
+            if (response.ok) {
+                document.getElementById('forgot-password-form').style.display = 'none';
+                document.getElementById('otp-form').style.display = 'block';
+                document.getElementById('login-errors').textContent = '';
+            } else {
+                document.getElementById('login-errors').textContent = 'Failed to send OTP. Please try again.';
+            }
+        }
+
+        document.getElementById('submitForgotPassword').addEventListener('click', sendOtp);
+
+        async function verifyOtp() {
+            const email = document.getElementById('forgot-email').value;
+            const otp = document.getElementById('otp').value;
+
+            const response = await fetch('/api/users/verify-otp', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email, otp }),
+            });
+
+            if (response.ok) {
+                document.getElementById('otp-form').style.display = 'none';
+                document.getElementById('reset-password-form').style.display = 'block';
+                document.getElementById('login-errors').textContent = '';
+            } else {
+                document.getElementById('login-errors').textContent = 'Invalid OTP. Please try again.';
+            }
+        }
+
+        document.getElementById('submitOtp').addEventListener('click', verifyOtp);
+
+        async function resetPassword() {
+            const email = document.getElementById('forgot-email').value;
+            const newPassword = document.getElementById('new-password').value;
+
+            const response = await fetch('/api/users/reset-password', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email, newPassword }),
+            });
+
+            if (response.ok) {
+                document.getElementById('reset-password-form').style.display = 'none';
+                document.getElementById('welcome-text').textContent = 'Password has been reset successfully!';
+                document.getElementById('welcome-message').style.display = 'block';
+            } else {
+                document.getElementById('login-errors').textContent = 'Failed to reset password. Please try again.';
+            }
+        }
+
+        document.getElementById('submitNewPassword').addEventListener('click', resetPassword);
     </script>
 </body>
 

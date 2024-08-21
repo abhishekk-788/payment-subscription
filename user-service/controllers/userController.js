@@ -21,6 +21,12 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ msg: "User already exists" });
     }
 
+    // Hash the password before saving it to the database
+    const salt = await bcrypt.genSalt(10);
+    password = await bcrypt.hash(password, salt);
+
+    logger.info("User password hashed", { email, password });
+
     const user = new User({
       name,
       email,
@@ -43,6 +49,7 @@ const registerUser = async (req, res) => {
 
     await sendToQueue("payment_user_queue", dataToQueue);
     await sendToQueue("subscription_user_queue", dataToQueue);
+    await sendToQueue("notification_queue", dataToQueue);
 
     res.status(201).json({ "message": "User registration successful" });
     logger.info("User registered successfully", { userId: user._id });
@@ -87,6 +94,114 @@ const loginUser = async (req, res) => {
   }
 };
 
+const forgotPassword = async (req, res) => { 
+  const { email } = req.body;
+
+  try {
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    // Generate a 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Store OTP in Redis with expiration (e.g., 15 minutes)
+    await redisClient.set(`resetPasswordOtp:${email}`, otp, {
+      EX: 15 * 60,
+    });
+
+    // Send OTP via notification-service
+    await sendToQueue("notification_queue", {
+      type: "reset_password_otp",
+      userId: user._id,
+      email: user.email,
+      otp: otp,
+    });
+    logger.info(`OTP: ${otp} sent to ${email} via notification service`);
+    
+    res.json({ success: true, message: 'OTP has been sent to your email.' });
+  } catch (error) {
+    console.error('Error in forgot password:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+}
+
+const verifyOtp = async (req, res) => {
+  const { email, otp } = req.body;
+
+  try {
+    // Retrieve the OTP from Redis
+    const storedOtp = await redisClient.get(`resetPasswordOtp:${email}`);
+    logger.info(`Retrieved OTP from Redis: ${storedOtp}`);
+    logger.info(`OTP received: ${otp}`);
+
+    if (!storedOtp || storedOtp !== otp) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid or expired OTP" });
+    }
+
+    // OTP is valid; allow password reset
+    res.json({
+      success: true,
+      message: "OTP verified. You may now reset your password.",
+    });
+  } catch (error) {
+    console.error("Error verifying OTP:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+
+const resetPassword = async (req, res) => {
+  const { email, newPassword } = req.body;
+  logger.info("Reset password request received", { email, newPassword });
+
+  try {
+    // Check if the OTP is still valid in Redis
+    const storedOtp = await redisClient.get(`resetPasswordOtp:${email}`);
+
+    if (!storedOtp) {
+      return res
+        .status(400)
+        .json({ success: false, message: "OTP has expired or user not found" });
+    }
+
+    // Find the user in the database
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
+
+    // Hash the new password
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+
+    logger.info("New password hashed successfully", { userId: user._id, password: user.password });
+
+    // Save the new password
+    await user.save();
+
+    // Clear the OTP from Redis
+    redisClient.del(`resetPasswordOtp:${email}`);
+
+    logger.info("Password reset successfully", { userId: user._id });
+
+    res.json({
+      success: true,
+      message: "Password has been reset successfully",
+    });
+  } catch (error) {
+    console.error("Error resetting password:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 // Get authenticated user's profile
 const getUserProfile = async (req, res) => {
   const { userId } = req.query;
@@ -128,7 +243,7 @@ const getAuthToken = async (req, res) => {
   }
 };
 
-// Logout user
+// Log out user
 const logoutUser = async (req, res) => {
   const token = req.headers.authorization?.split(" ")[1];
 
@@ -137,17 +252,25 @@ const logoutUser = async (req, res) => {
   }
 
   try {
-    // Invalidate the token by destroying it in Redis
-    await jwtr.destroy(token);
-    const isTokenDestroyed = await redisClient.get(token); // Or equivalent JWTR method
-    if (!isTokenDestroyed) {
-      logger.info("Token successfully invalidated", { token });
-    } else {
-      logger.error("Token invalidation failed", { token });
-    }
-    logger.info("User logged out successfully", { token });
+    // Decode the JWT to get the user's ID
+    const decoded = await jwtr.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.id;
+
+    await jwtr.destroy(token, process.env.JWT_SECRET);
+
+    // Remove the token from Redis for the specific user
+    await redisClient.del(`authToken:${userId}`);
+
+    logger.info("User logged out successfully", { userId });
+
     res.status(200).json({ msg: "User logged out successfully" });
   } catch (err) {
+    if (err.name === "TokenExpiredError") {
+      // Handle the case where the token has expired
+      logger.error("Token has already expired", { token });
+      return res.status(401).json({ msg: "Token has already expired" });
+    }
+
     logger.error("Error during logout", { error: err.message });
     res.status(500).json({ msg: "Server error" });
   }
@@ -421,6 +544,9 @@ const getStripePublishableKey = (req, res) => {
 module.exports = {
   registerUser,
   loginUser,
+  forgotPassword,
+  verifyOtp,
+  resetPassword,
   getUserProfile,
   logoutUser,
   addPaymentMethod,

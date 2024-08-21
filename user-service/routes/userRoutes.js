@@ -11,7 +11,10 @@ const {
   getPaymentMethods,
   deletePaymentMethod,
   getStripePublishableKey,
-  getAuthToken,  
+  getAuthToken,
+  forgotPassword,
+  verifyOtp,
+  resetPassword,  
 } = require("../controllers/userController");
 
 const auth = require("../middleware/auth");
@@ -23,6 +26,13 @@ router.post("/register", registerUser);
 
 // Login route
 router.post("/login", loginUser);
+
+// Forgot Password route
+router.post("/forgot-password", forgotPassword);
+
+router.post("/verify-otp", verifyOtp);
+
+router.post("/reset-password", resetPassword);
 
 // Get user profile
 router.get("/profile", auth, getUserProfile);

@@ -14,6 +14,17 @@ const sendMailNotification = async (data) => {
   
   // Local Date and Time
   switch (data.type) {
+    case "user_registration":
+      subject = "New User Registration";
+      message = `Welcome ${name} to Payflex.\n\nPlease check the platform for more details.\n\nThank you.`;
+      break;
+    case "reset_password_otp":
+      subject = "Reset Password OTP";
+      message = `Hello ${name},\n\nYour OTP for resetting your password is ${
+        data.otp
+      }.\n\nPlease use this OTP to reset your password.\n\nThank you.`;
+      break;
+    case "subscription_cancelled":
     case "subscription_created":
       subject = `New Subscription Created - Amount: ${data.amount}`;
       message = `Hello ${name},\n\nA new subscription has been created with an amount of ${data.amount}.\n\nPlease check the platform for more details.\n\nThank you.`;
@@ -36,9 +47,9 @@ const sendMailNotification = async (data) => {
       break;
     case "payment_reminder":
       subject = `Payment Reminder - Amount: ${data.amount}`;
-      message = `Hello ${name},\n\nYour payment with ID ${data.paymentId} is due on ${moment(
-        data.dueDate.ist
-      ).format(
+      message = `Hello ${name},\n\nYour payment with ID ${
+        data.paymentId
+      } is due on ${moment(data.dueDate.ist).format(
         "YYYY-MM-DD"
       )}.\n\nPlease check the platform for more details.\n\nThank you.`;
       break;

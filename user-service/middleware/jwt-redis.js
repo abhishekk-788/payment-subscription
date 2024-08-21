@@ -1,6 +1,5 @@
 const redis = require("redis");
 const JWTR = require("jwt-redis").default;
-const jwt = require("jsonwebtoken");
 
 // Create and connect the Redis client
 const redisClient = redis.createClient({
@@ -17,4 +16,4 @@ redisClient.on("error", (err) => {
 
 const jwtr = new JWTR(redisClient);
 
-module.exports = { redisClient, jwtr };
+module.exports = { redisClient, jwtr};
