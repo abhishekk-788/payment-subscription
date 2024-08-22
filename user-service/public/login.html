@@ -168,6 +168,14 @@
             const email = document.getElementById('email').value;
             const password = document.getElementById('password').value;
 
+            const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+            const isValidEmail = emailRegex.test(email);
+
+            if(!isValidEmail) {
+                document.getElementById('login-errors').textContent = 'Invalid email address';
+                return;
+            }
+
             const response = await fetch('/api/users/login', {
                 method: 'POST',
                 headers: {

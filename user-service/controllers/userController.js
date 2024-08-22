@@ -23,14 +23,14 @@ const registerUser = async (req, res) => {
 
     // Hash the password before saving it to the database
     const salt = await bcrypt.genSalt(10);
-    password = await bcrypt.hash(password, salt);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
-    logger.info("User password hashed", { email, password });
+    logger.info("User password hashed", { email, hashedPassword });
 
     const user = new User({
       name,
       email,
-      password,
+      password: hashedPassword,
     });
 
     await user.save();
@@ -79,7 +79,7 @@ const loginUser = async (req, res) => {
     }
 
     const token = await jwtr.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
+      expiresIn: "2h",
     });
     logger.info("JWT token generated", { token: token });
 
@@ -116,6 +116,7 @@ const forgotPassword = async (req, res) => {
     await sendToQueue("notification_queue", {
       type: "reset_password_otp",
       userId: user._id,
+      name: user.name,
       email: user.email,
       otp: otp,
     });
@@ -213,7 +214,12 @@ const getUserProfile = async (req, res) => {
   }
 
   try {
-    const user = await User.findById(userId).select("-password");
+    const user = await User.findById(userId).select({
+      name: 1,
+      email: 1,
+      paymentMethods: 1
+    });
+
     if (!user) {
       res.json("User not found");
       return;
@@ -502,16 +508,20 @@ const deletePaymentMethod = async (req, res) => {
       { new: true } // Returns the updated user document
     );
 
+    logger.info("Payment method deleted from local database", updatedUser.paymentMethods);
+
     // Fetch the updated payment methods from Stripe
-    const paymentMethods = await stripe.paymentMethods.list({
-      customer: user.stripeCustomerId,
-      type: "card",
-    });
+    const customer = await stripe.customers.retrieve(user.stripeCustomerId);
+    const defaultPaymentMethodId =
+      customer.invoice_settings.default_payment_method;
+
+    logger.info("Updated customer Info in stripe", customer);
+    logger.info("Default payment method in stripe", defaultPaymentMethodId);
 
     // Update the user's payment methods in MongoDB
     const updatedUserWithStripeMethods = await User.findByIdAndUpdate(
       userId,
-      { paymentMethods: paymentMethods.data },
+      { paymentMethods: updatedUser.paymentMethods },
       { new: true } // Returns the updated user document
     );
 

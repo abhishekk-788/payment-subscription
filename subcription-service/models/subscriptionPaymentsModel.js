@@ -48,6 +48,9 @@ const subscriptionPaymentSchema = new mongoose.Schema({
     enum: ["pending", "processing", "paid", "overdue", "failed"],
     default: "pending",
   },
+  error: {
+    type: String,
+  },
   createdAt: {
     utc: { type: Date },
     ist: { type: Date },

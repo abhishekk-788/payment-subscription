@@ -4,7 +4,7 @@ const sendToQueue = require("../utils/rabbitmq").sendToQueue;
 const logger = require("../utils/logger");
 const moment = require("moment-timezone");
 const cron = require("node-cron");
-const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const { executePaymentStripe, executePaymentStripeMock } = require("./stripeService");
 
 const createPaymentFromSubscriptionQueue = async (
   payment,
@@ -191,35 +191,51 @@ const processOneTimePayment = async (subscriptionPaymentId) => {
       amount,
       paymentUser.stripeCustomerId
     );
+    
+    logger.info("Payment processing completed...", paymentStatus);
+
     if (paymentStatus.status === "success") {
       payment.status = "paid";
       await payment.save();
 
-      const notificationData = {
+      const dataToQueue = {
         type: "payment_success",
         userId: paymentUser._id,
         subscriptionId: payment.subscriptionId,
+        subscriptionPaymentId: subscriptionPaymentId,
         name: paymentUser.name,
         email: paymentUser.email,
         paymentId: payment._id,
         amount: payment.amount,
+        status: "paid",
+        error: paymentStatus?.error ?? "",
       };
-      await sendToQueue("notification_queue", notificationData);
+      await sendToQueue("notification_queue", dataToQueue);
+      await sendToQueue("update_subscription_queue", dataToQueue);
+
       console.log(`Payment succeeded for payment ID: ${payment._id}`);
     } else {
       payment.status = "failed";
+      payment.error = paymentStatus?.error ?? "",
+      
       await payment.save();
 
-      const notificationData = {
+      const dataToQueue = {
         type: "payment_failed",
         userId: paymentUser._id,
         subscriptionId: payment.subscriptionId,
+        subscriptionPaymentId: subscriptionPaymentId,
         name: paymentUser.name,
         email: paymentUser.email,
         paymentId: payment._id,
         amount: payment.amount,
+        status: "failed",
+        error: paymentStatus?.error ?? "",
       };
-      await sendToQueue("notification_queue", notificationData);
+      
+      await sendToQueue("notification_queue", dataToQueue);
+      await sendToQueue("update_subscription_queue", dataToQueue);
+      
       console.log(`Payment failed for payment ID: ${payment._id}`);
     }
   } catch (error) {
@@ -230,54 +246,29 @@ const processOneTimePayment = async (subscriptionPaymentId) => {
     await payment.save();
 
     const paymentUser = await PaymentUser.findOne({ userId: userId });
-    const notificationData = {
-      type: "payment_failure",
+    
+    const dataToQueue = {
+      type: "payment_failed",
       userId: paymentUser._id,
-      subscriptionId: null,
+      subscriptionId: payment.subscriptionId,
+      subscriptionPaymentId: subscriptionPaymentId,
       name: paymentUser.name,
       email: paymentUser.email,
       paymentId: payment._id,
       amount: payment.amount,
+      status: "failed",
+      error: paymentStatus?.error?.message ?? "",
     };
-    await sendToQueue("notification_queue", notificationData);
+
+    await sendToQueue("notification_queue", dataToQueue);
+    await sendToQueue("update_subscription_queue", dataToQueue);
+
     console.log(
       `Payment failure notification sent for payment ID: ${payment._id}`
     );
   }
 };
 
-const executePaymentStripe = async (
-  paymentMethodId,
-  amount,
-  customerId,
-  currency = "inr"
-) => {
-  const amountInSmallestUnit = amount * 100;
-  try {
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amountInSmallestUnit,
-      currency: currency,
-      customer: customerId, // Specify the customer ID
-      payment_method: paymentMethodId,
-      confirm: true,
-      automatic_payment_methods: {
-        enabled: true,
-        allow_redirects: "never", // Prevent redirects
-      },
-    });
-
-    return {
-      status: "success",
-      paymentIntent: paymentIntent,
-    };
-  } catch (error) {
-    console.error("Payment processing failed:", error.message);
-    return {
-      status: "failed",
-      error: error.message,
-    };
-  }
-};
 module.exports = {
   createPaymentFromSubscriptionQueue,
   processPayments,
