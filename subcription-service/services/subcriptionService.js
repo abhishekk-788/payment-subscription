@@ -112,15 +112,14 @@ const scheduleNmonthPayment = (n, subscription) => {
   const dueDateUTC = calculateDueDate(currentDate);
   const dueDateIST = convertDateToIST(dueDateUTC);
 
-  // console.log("Date: ", dueDateUTC, dueDateIST);
-
   const payments = [];
-  for (let i = 1; i <= n; i++) {
-    
-    const newDueDateUTC = moment(dueDateUTC).add(i, "months").toDate();
-    const newDueDateIST = moment(dueDateIST).add(i, "months").toDate();
+  const nextDueDateUTC = moment(dueDateUTC).add(0, "days").toDate();
+  const nextDueDateIST = moment(dueDateIST).add(0, "days").toDate();
 
-    // console.log("Inside Date: ", newDueDateUTC, newDueDateIST);
+  for (let i = 0; i < n; i++) {
+    
+    const newDueDateUTC = moment(nextDueDateUTC).add(i, "months").toDate();
+    const newDueDateIST = moment(nextDueDateIST).add(i, "months").toDate();
 
     payments.push({
       userId: userId,
@@ -132,7 +131,7 @@ const scheduleNmonthPayment = (n, subscription) => {
         ist: newDueDateIST,
       },
       paymentType: "recurring",
-      priority: i,
+      priority: i+1,
     });
   }
   return payments;

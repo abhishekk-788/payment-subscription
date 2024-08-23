@@ -32,6 +32,14 @@ const sendMailNotification = async (data) => {
       subject = `New Payment Received - Amount: ${data.amount}`;
       message = `Hello ${name},\n\nA new payment has been received with an amount of ${data.amount}.\n\nPlease check the platform for more details.\n\nThank you.`;
       break;
+    case "payment_success":
+      subject = `Payment of Amount: ${data.amount} was successful`;
+      message = `Hello ${name},\n\nYour payment of amount ${data.amount} was successful.\n\nPlease check the platform for more details.\n\nThank you.`;
+      break;
+    case "payment_failed":
+      subject = `Payment of Amount: ${data.amount} failed`;
+      message = `Hello ${name},\n\nYour payment of amount ${data.amount} failed.\n\nPlease check the platform for more details.\n\nThank you.`;
+      break;
     case "payment_extended":
       subject = `EMI Extension - Amount: ${data.amount}`;
       message = `Hello ${name},\n\nYour EMI extension for the subscription with ID ${

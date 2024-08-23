@@ -27,6 +27,8 @@ const notificationSchema = new mongoose.Schema({
       "reset_password_otp",
       "subscription_created",
       "payment_created",
+      "payment_success",
+      "payment_failed",
       "payment_extended",
       "payment_reminder",
     ],

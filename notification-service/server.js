@@ -3,7 +3,8 @@ const express = require("express");
 const connectDB = require("./config/db");
 const notificationRoutes = require("./routes/notificationRoutes");
 const consumeMessages = require("./utils/rabbitmq");
-const sendMailNotification = require("./controllers/notificationController")
+const sendMailNotification = require("./controllers/notificationController");
+const logger = require("./utils/logger");
 require("dotenv").config();
 
 const app = express();
@@ -27,7 +28,7 @@ const startServer = async () => {
   });
 
   app.listen(PORT, () => {
-    console.log(`Notification Service running on port ${PORT}`);
+    logger.info(`Notification Service running on port ${PORT}`);
   });
 };
 

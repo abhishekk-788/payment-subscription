@@ -2,6 +2,8 @@
 const express = require("express");
 const path = require("path");
 const cors = require("cors");
+const moment = require("moment-timezone");
+const cron = require("node-cron");
 const connectDB = require("./config/db");
 const paymentRoutes = require("./routes/paymentRoutes");
 const consumeMessages = require("./utils/rabbitmq").consumeMessages;
@@ -106,8 +108,6 @@ const startServer = async () => {
     if (payment.paymentType === "one_time") {
       await processOneTimePayment(subscriptionPaymentId);
     }
-
-    await processPayments();
   });
 
   consumeMessages("update_payment_queue", async (payment) => {
@@ -136,10 +136,24 @@ const startServer = async () => {
     logger.info("Payment updated successfully", result, payment);
   });
 
+  cron.schedule("0 7 * * *", async () => {
+    const now = moment().tz("Asia/Kolkata").format("YYYY-MM-DD HH:mm:ss");
+    logger.info(`Cron job started at ${now} IST`);
+
+    try {
+      await processPayments();
+      logger.info("processPayments() executed successfully");
+    } catch (error) {
+      logger.error("Error executing processPayments()", {
+        error: error.message,
+      });
+    }
+  });
+
   await schedulePaymentReminders();
 
   app.listen(PORT, () => {
-    console.log(`Payment Service running on port ${PORT}`);
+    logger.info(`Payment service running on port ${PORT}`);
   });
 };
 

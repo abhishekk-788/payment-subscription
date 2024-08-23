@@ -4,10 +4,11 @@ const { sendToQueue } = require("../utils/rabbitmq");
 const Payment = require("../models/paymentModel"); // Assuming you have a Payment model
 const moment = require("moment-timezone");
 const PaymentUser = require("../models/paymentUserModel");
+const logger = require("../utils/logger");
 
 const schedulePaymentReminders = async () => {
   cron.schedule("30 5 * * *", async () => {
-    console.log("Checking for scheduled payments...");
+    logger.info("Checking for schedule payments...");
 
     // Get the current date in IST
     const todayIST = moment()
@@ -27,7 +28,6 @@ const schedulePaymentReminders = async () => {
       },
       status: "pending",
     };
-    console.log(filter);
 
     // Find payments due the day after tomorrow
     const paymentsDueTomorrow = await Payment.find(filter);
@@ -52,10 +52,10 @@ const schedulePaymentReminders = async () => {
           message: `Your payment of amount ${payment.amount} will be debited tomorrow. Please maintain sufficient balance.`,
         };
         await sendToQueue("notification_queue", reminderDataToQueue);
-        console.log(`Reminder sent for payment ID: ${payment._id}`);
+        logger.info(`Reminder sent for payment ID: ${payment._id}`);
       });
     } else {
-      console.log("No payments due tomorrow.");
+      logger.info("No payments due tomorrow.");
     }
   });
 };

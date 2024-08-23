@@ -3,8 +3,10 @@ const PaymentUser = require("../models/paymentUserModel");
 const sendToQueue = require("../utils/rabbitmq").sendToQueue;
 const logger = require("../utils/logger");
 const moment = require("moment-timezone");
-const cron = require("node-cron");
-const { executePaymentStripe, executePaymentStripeMock } = require("./stripeService");
+const {
+  executePaymentStripe,
+  executePaymentStripeMock,
+} = require("./stripeService");
 
 const createPaymentFromSubscriptionQueue = async (
   payment,
@@ -55,113 +57,130 @@ const createPaymentFromSubscriptionQueue = async (
 };
 
 const processPayments = async () => {
-  cron.schedule(
-    "30 2 * * *", // 8 AM IST
-    async () => {
-      console.log("Processing payments scheduled for today...");
+  logger.info("Processing payments scheduled for today...");
 
-      const todayIST = moment()
-        .tz("Asia/Kolkata")
-        .startOf("day")
-        .add({ hours: 5, minutes: 30 });
+  const todayIST = moment()
+    .tz("Asia/Kolkata")
+    .startOf("day")
+    .add({ hours: 5, minutes: 30 });
 
-      const tomorrowIST = moment(todayIST).add(1, "days");
+  const tomorrowIST = moment(todayIST).add(1, "days");
 
-      const filter = {
-        "dueDate.ist": {
-          $gte: todayIST.toDate(),
-          $lt: tomorrowIST.toDate(),
-        },
-        status: "pending",
-      };
+  const filter = {
+    "dueDate.ist": {
+      $gte: todayIST.toDate(),
+      $lt: tomorrowIST.toDate(),
+    },
+    status: "pending",
+  };
 
-      const paymentsDueToday = await Payment.find(filter);
+  const paymentsDueToday = await Payment.find(filter);
+  logger.info("Payments due today", paymentsDueToday.length);
 
-      if (paymentsDueToday.length > 0) {
-        for (const payment of paymentsDueToday) {
-          try {
-            const paymentUser = await PaymentUser.findOne({
-              userId: payment.userId,
-            });
+  if (paymentsDueToday.length > 0) {
+    for (const payment of paymentsDueToday) {
+      const {
+        userId,
+        amount,
+        paymentMethodId,
+        _id: paymentId,
+        subscriptionId,
+      } = payment;
 
-            const paymentStatus = await executePaymentStripe(
-              payment.paymentMethodId,
-              payment.amount
-            );
-            if (paymentStatus.status === "succeeded") {
-              payment.status = "succeeded";
-              await payment.save();
-
-              const notificationData = {
-                type: "payment_success",
-                userId: paymentUser._id,
-                subscriptionId: payment.subscriptionId,
-                name: paymentUser.name,
-                email: paymentUser.email,
-                paymentId: payment._id,
-                amount: payment.amount,
-                dueDate: {
-                  utc: payment.dueDate.utc,
-                  ist: payment.dueDate.ist,
-                },
-              };
-              await sendToQueue("notification_queue", notificationData);
-              console.log(`Payment succeeded for payment ID: ${payment._id}`);
-            } else {
-              payment.status = "failed";
-              await payment.save();
-              const notificationData = {
-                type: "payment_failure",
-                userId: paymentUser._id,
-                subscriptionId: payment.subscriptionId,
-                name: paymentUser.name,
-                email: paymentUser.email,
-                paymentId: payment._id,
-                amount: payment.amount,
-                dueDate: {
-                  utc: payment.dueDate.utc,
-                  ist: payment.dueDate.ist,
-                },
-              };
-              await sendToQueue("notification_queue", notificationData);
-              console.log(`Payment failed for payment ID: ${payment._id}`);
-            }
-          } catch (error) {
-            console.error(
-              `Failed to process payment ID: ${payment._id} - ${error.message}`
-            );
-
-            payment.status = "failed";
-            await payment.save();
-
-            const paymentUser = await PaymentUser.findOne({
-              userId: payment.userId,
-            });
-
-            const notificationData = {
-              type: "payment_failure",
-              userId: paymentUser._id,
-              subscriptionId: payment.subscriptionId,
-              name: paymentUser.name,
-              email: paymentUser.email,
-              paymentId: payment._id,
-              amount: payment.amount,
-              dueDate: {
-                utc: payment.dueDate.utc,
-                ist: payment.dueDate.ist,
-              },
-            };
-            await sendToQueue("notification_queue", notificationData);
-            console.log(
-              `Payment failure notification sent for payment ID: ${payment._id}`
-            );
-          }
+      try {
+        const paymentUser = await PaymentUser.findOne({ userId: userId });
+        if (!paymentUser) {
+          logger.error("User not found");
+          continue;
         }
-      } else {
-        console.log("No payments scheduled for today.");
+
+        payment.status = "processing";
+        await payment.save();
+
+        logger.info("Payment processing started...");
+
+        const paymentStatus = await executePaymentStripe(
+          paymentMethodId,
+          amount,
+          paymentUser.stripeCustomerId
+        );
+
+        logger.info("Payment processing completed...", paymentStatus);
+
+        if (paymentStatus.status === "success") {
+          payment.status = "paid";
+          await payment.save();
+
+          const dataToQueue = {
+            type: "payment_success",
+            userId: paymentUser._id,
+            subscriptionId: subscriptionId,
+            paymentId: paymentId,
+            name: paymentUser.name,
+            email: paymentUser.email,
+            amount: amount,
+            status: "paid",
+            error: paymentStatus?.error ?? "",
+          };
+          await sendToQueue("notification_queue", dataToQueue);
+          await sendToQueue("update_subscription_queue", dataToQueue);
+
+          logger.info(`Payment succeeded for payment ID: ${paymentId}`);
+        } else {
+          payment.status = "failed";
+          payment.error = paymentStatus?.error ?? "";
+          await payment.save();
+
+          const dataToQueue = {
+            type: "payment_failed",
+            userId: paymentUser._id,
+            subscriptionId: subscriptionId,
+            paymentId: paymentId,
+            name: paymentUser.name,
+            email: paymentUser.email,
+            amount: amount,
+            status: "failed",
+            error: paymentStatus?.error ?? "",
+          };
+
+          await sendToQueue("notification_queue", dataToQueue);
+          await sendToQueue("update_subscription_queue", dataToQueue);
+
+          logger.info(`Payment failed for payment ID: ${paymentId}`);
+        }
+      } catch (error) {
+        console.error(
+          `Failed to process payment ID: ${paymentId} - ${error.message}`
+        );
+
+        payment.status = "failed";
+        await payment.save();
+
+        const paymentUser = await PaymentUser.findOne({ userId: userId });
+
+        const dataToQueue = {
+          type: "payment_failed",
+          userId: paymentUser._id,
+          subscriptionId: subscriptionId,
+          paymentId: paymentId,
+          name: paymentUser.name,
+          email: paymentUser.email,
+          amount: amount,
+          status: "failed",
+          error: error.message,
+        };
+
+        await sendToQueue("notification_queue", dataToQueue);
+        await sendToQueue("update_subscription_queue", dataToQueue);
+
+        logger.info(
+          `Payment failure notification sent for payment ID: ${paymentId}`
+        );
       }
     }
-  );
+  } else {
+    logger.info("No payments scheduled for today.");
+  }
 };
 
 const processOneTimePayment = async (subscriptionPaymentId) => {
@@ -191,7 +210,7 @@ const processOneTimePayment = async (subscriptionPaymentId) => {
       amount,
       paymentUser.stripeCustomerId
     );
-    
+
     logger.info("Payment processing completed...", paymentStatus);
 
     if (paymentStatus.status === "success") {
@@ -213,12 +232,10 @@ const processOneTimePayment = async (subscriptionPaymentId) => {
       await sendToQueue("notification_queue", dataToQueue);
       await sendToQueue("update_subscription_queue", dataToQueue);
 
-      console.log(`Payment succeeded for payment ID: ${payment._id}`);
+      logger.info(`Payment succeeded for payment ID: ${payment._id}`);
     } else {
       payment.status = "failed";
-      payment.error = paymentStatus?.error ?? "",
-      
-      await payment.save();
+      (payment.error = paymentStatus?.error ?? ""), await payment.save();
 
       const dataToQueue = {
         type: "payment_failed",
@@ -232,11 +249,11 @@ const processOneTimePayment = async (subscriptionPaymentId) => {
         status: "failed",
         error: paymentStatus?.error ?? "",
       };
-      
+
       await sendToQueue("notification_queue", dataToQueue);
       await sendToQueue("update_subscription_queue", dataToQueue);
-      
-      console.log(`Payment failed for payment ID: ${payment._id}`);
+
+      logger.info(`Payment failed for payment ID: ${payment._id}`);
     }
   } catch (error) {
     console.error(
@@ -246,7 +263,7 @@ const processOneTimePayment = async (subscriptionPaymentId) => {
     await payment.save();
 
     const paymentUser = await PaymentUser.findOne({ userId: userId });
-    
+
     const dataToQueue = {
       type: "payment_failed",
       userId: paymentUser._id,
@@ -263,7 +280,7 @@ const processOneTimePayment = async (subscriptionPaymentId) => {
     await sendToQueue("notification_queue", dataToQueue);
     await sendToQueue("update_subscription_queue", dataToQueue);
 
-    console.log(
+    logger.info(
       `Payment failure notification sent for payment ID: ${payment._id}`
     );
   }

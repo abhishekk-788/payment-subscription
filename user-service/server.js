@@ -28,4 +28,4 @@ app.use(
 // Routes
 app.use("/api/users", userRoutes);
 
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => logger.info(`Server running on port ${PORT}`));

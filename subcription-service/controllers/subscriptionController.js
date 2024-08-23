@@ -196,7 +196,6 @@ const getSubscriptionsByUser = async (req, res) => {
       return subcriptionInfo;
     }));
     
-    console.log(subcriptionInfos);
     res.json(subcriptionInfos);
 
   } catch (err) {

@@ -124,7 +124,7 @@ const startServer = async () => {
   });
 
   app.listen(PORT, () => {
-    console.log(`Subscription Service running on port ${PORT}`);
+    logger.info(`Subscription Service running on port ${PORT}`);
   });
 };
 
