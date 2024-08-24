@@ -13,6 +13,7 @@ const findNearestUpcomingPayment = async (subscriptionId) => {
         "dueDate.ist": { $gte: today },  // Local Date and Time
         extensionDate: null,
         isDateExtended: false,
+        status: {$ne: "paid"},
       })
       .sort("dueDate.utc")
       .limit(1)

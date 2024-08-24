@@ -6,6 +6,7 @@ const { findNearestUpcomingPayment, getExtensionCharge } = require("../services/
 const { sendToQueue } = require("../utils/rabbitmq");
 const SubscriptionPayment = require("../models/subscriptionPaymentsModel");
 const moment = require("moment-timezone");
+const { executePaymentStripe } = require("../services/stripeService");
 require("dotenv").config();
 
 // Create a new subscription
@@ -47,7 +48,7 @@ const createSubscription = async (req, res) => {
 // Extends an existing subscription
 const extendSubscription = async (req, res) => { 
   const { subscriptionId } = req.params;
-  const { extendPaymentDays } = req.body;
+  const { userId, extendPaymentDays } = req.body;
 
   if (!extendPaymentDays || extendPaymentDays <= 0) 
     res.status(400).json({ msg: "Invalid extension days" });
@@ -63,11 +64,29 @@ const extendSubscription = async (req, res) => {
 
     logger.info("Subscription extension request received", { subscriptionId });
 
+    if (subscription.userId != userId) {
+      return res.status(401).json({ msg: "Unauthorized" });
+    }
+
+    const subcriptionUser = await SubscriptionUser.findOne({ userId: subscription.userId });
+    logger.info("Subscription User ", subcriptionUser);
+
     const payment = await findNearestUpcomingPayment(subscriptionId);
     if (!payment)
       return res.status(404).json({ msg: "No upcoming payment found" });
 
-    const extensionCharges = getExtensionCharge(payment.amount, extendPaymentDays);
+    const extensionCharges = getExtensionCharge(payment.amount, extendPaymentDays).toPrecision(2);
+
+    const paymentStatus = await executePaymentStripe(subscription.paymentMethodId, extensionCharges, subcriptionUser.stripeCustomerId);
+    logger.info("Payment processing completed...", paymentStatus);
+
+    if (paymentStatus.status !== "success") {
+      logger.error("Payment status ", paymentStatus);
+      logger.error("Payment failed for extending EMI payment");
+
+      return res.status(400).json({ msg: "Payment failed for extending subscription" });
+    }
+  
 
     let extendedDueDate = new Date(payment.dueDate.utc);
     extendedDueDate.setDate(
@@ -133,7 +152,7 @@ const getExtensionCharges = async (req, res) => {
     if (!payment)
       return res.status(404).json({ msg: "No upcoming payment found" });
 
-    const extensionCharges = getExtensionCharge(payment.amount, extendPaymentDays);
+    const extensionCharges = getExtensionCharge(payment.amount, extendPaymentDays).toPrecision(2);;
 
     logger.info("Extension charges retrieved successfully", {
       subscriptionId,

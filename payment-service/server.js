@@ -136,7 +136,7 @@ const startServer = async () => {
     logger.info("Payment updated successfully", result, payment);
   });
 
-  cron.schedule("0 7 * * *", async () => {
+  cron.schedule("0 8 * * *", async () => {
     const now = moment().tz("Asia/Kolkata").format("YYYY-MM-DD HH:mm:ss");
     logger.info(`Cron job started at ${now} IST`);
 

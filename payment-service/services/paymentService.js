@@ -85,6 +85,7 @@ const processPayments = async () => {
         paymentMethodId,
         _id: paymentId,
         subscriptionId,
+        subscriptionPaymentId,
       } = payment;
 
       try {
@@ -115,6 +116,7 @@ const processPayments = async () => {
             type: "payment_success",
             userId: paymentUser._id,
             subscriptionId: subscriptionId,
+            subscriptionPaymentId: subscriptionPaymentId,
             paymentId: paymentId,
             name: paymentUser.name,
             email: paymentUser.email,
@@ -135,6 +137,7 @@ const processPayments = async () => {
             type: "payment_failed",
             userId: paymentUser._id,
             subscriptionId: subscriptionId,
+            subscriptionPaymentId: subscriptionPaymentId,
             paymentId: paymentId,
             name: paymentUser.name,
             email: paymentUser.email,
@@ -162,6 +165,7 @@ const processPayments = async () => {
           type: "payment_failed",
           userId: paymentUser._id,
           subscriptionId: subscriptionId,
+          subscriptionPaymentId: subscriptionPaymentId,
           paymentId: paymentId,
           name: paymentUser.name,
           email: paymentUser.email,
